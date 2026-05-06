@@ -1,9 +1,13 @@
 {
   "name": "iot_cloud",
   "version": "1.0.0",
-  "main": "firebase.js",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "dev": "nodemon server.js"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "keywords": [],
   "author": "",

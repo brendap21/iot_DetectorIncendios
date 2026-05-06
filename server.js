@@ -9,6 +9,8 @@ const sensoresRoutes = require("./routes/sensores.routes");
 
 const app = express();
 
+console.log("🔥 INICIANDO SERVIDOR...");
+
 // ================= SECURITY =================
 app.use(helmet());
 
@@ -17,6 +19,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
 
 // ================= RATE LIMIT =================
 app.use(
@@ -43,3 +46,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
+
+console.log("🚀 LISTO PARA ESCUCHAR");
