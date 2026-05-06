@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/sensores", sensoresRoutes);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor corriendo en puerto", PORT);
