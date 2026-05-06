@@ -9,40 +9,37 @@ const sensoresRoutes = require("./routes/sensores.routes");
 
 const app = express();
 
-// Seguridad
+// ================= SECURITY =================
 app.use(helmet());
 
-app.use(
-  cors({
-    origin: false,
-  })
-);
+app.use(cors({
+  origin: "*"
+}));
 
 app.use(express.json());
 
-// Rate limit
+// ================= RATE LIMIT =================
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
+    max: 100
   })
 );
 
-// Ruta principal
+// ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     ok: true,
-    mensaje: "API IoT segura funcionando",
+    message: "API IoT funcionando correctamente 🚀"
   });
 });
 
-// Rutas API
+// ================= ROUTES =================
 app.use("/api/sensores", sensoresRoutes);
 
-// Puerto Railway
+// ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
-// Escuchar
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
-}); 
+});
