@@ -8,9 +8,15 @@ const {
     guardarLectura
 } = require("../controllers/sensores.controller");
 
+const {
+    reglasSensor,
+    validarSensor
+} = require("../middleware/validarSensor");
+
 router.post(
     "/",
     authDevice,
+    reglasSensor,
     validarSensor,
     guardarLectura
 );
