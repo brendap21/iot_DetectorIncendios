@@ -7,17 +7,9 @@ const {
   FIREBASE_PRIVATE_KEY
 } = process.env;
 
-if (!FIREBASE_PROJECT_ID) {
-  throw new Error("Falta FIREBASE_PROJECT_ID");
-}
-
-if (!FIREBASE_CLIENT_EMAIL) {
-  throw new Error("Falta FIREBASE_CLIENT_EMAIL");
-}
-
-if (!FIREBASE_PRIVATE_KEY) {
-  throw new Error("Falta FIREBASE_PRIVATE_KEY");
-}
+if (!FIREBASE_PROJECT_ID) throw new Error("Falta FIREBASE_PROJECT_ID");
+if (!FIREBASE_CLIENT_EMAIL) throw new Error("Falta FIREBASE_CLIENT_EMAIL");
+if (!FIREBASE_PRIVATE_KEY) throw new Error("Falta FIREBASE_PRIVATE_KEY");
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -32,4 +24,5 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 console.log("Firebase conectado correctamente");
+
 module.exports = db;
