@@ -1,6 +1,13 @@
-const db = require("../firebase");
+const { db, isFirebaseConfigured } = require("../firebase");
 
 const guardarLectura = async (req, res) => {
+    if (!isFirebaseConfigured || !db) {
+        return res.status(503).json({
+            ok: false,
+            error: "Firebase no está configurado en este entorno"
+        });
+    }
+
     try {
         const { llama, gas, movimiento } = req.body;
 

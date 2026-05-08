@@ -1,8 +1,12 @@
 require("dotenv").config();
-const db = require("./firebase");
+const { db, isFirebaseConfigured } = require("./firebase");
 
 async function test() {
     try {
+        if (!isFirebaseConfigured || !db) {
+            throw new Error("Firebase no está configurado en este entorno");
+        }
+
         const doc = await db.collection("test").add({
             mensaje: "hola firebase",
             fecha: new Date()
