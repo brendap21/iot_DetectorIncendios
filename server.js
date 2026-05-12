@@ -1,77 +1,31 @@
-require("dotenv").config();
+// server.js - start the HTTP server from the modularized app
+const app = require('./app');
+const logger = require('./logger');
 
-const express = require("express");
-const helmet = require("helmet");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-
-const sensoresRoutes = require("./routes/sensores.routes");
-
-const app = express();
-
-// Seguridad básica
-app.use(helmet());
-
-// CORS
-app.use(cors());
-
-// Parse JSON
-app.use(express.json());
-
-// Rate limit
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,
-    message: {
-      ok: false,
-      error: "Demasiadas peticiones"
-    }
-  })
-);
-
-// Health check para Render
-app.get("/", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: "IoT Detector Incendios",
-    status: "online"
-  });
-});
-
-// Ruta health explícita
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    ok: true
-  });
-});
-
-// API
-app.use("/api/sensores", sensoresRoutes);
-
-// 404
-app.use((req, res) => {
-  res.status(404).json({
-    ok: false,
-    error: "Ruta no encontrada"
-  });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error("ERROR:", err);
-
-  res.status(500).json({
-    ok: false,
-    error: "Error interno"
-  });
-});
-
-// Render asigna puerto dinámico
+// Render assigns a dynamic port via env
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🔥 INICIANDO SERVIDOR...");
-  console.log("🚀 LISTO PARA ESCUCHAR");
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+// Log environment important bits (avoid secrets)
+logger.info('Starting server', { port: PORT, node_env: process.env.NODE_ENV || 'development' });
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  logger.info('🔥 INICIANDO SERVIDOR...');
+  logger.info('🚀 LISTO PARA ESCUCHAR', `Servidor corriendo en puerto ${PORT}`);
+});
+
+// Catch errors during startup
+server.on('error', (err) => {
+  logger.error('Server error during startup', err && err.stack ? err.stack : err);
+  process.exit(1);
+});
+
+// Process-level handlers to get diagnostic info in deploy logs
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Rejection at:', reason && reason.stack ? reason.stack : reason);
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err && err.stack ? err.stack : err);
+  // Give logs a moment then exit
+  setTimeout(() => process.exit(1), 100);
 });
