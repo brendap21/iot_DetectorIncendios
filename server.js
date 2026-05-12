@@ -29,3 +29,39 @@ process.on('uncaughtException', (err) => {
   // Give logs a moment then exit
   setTimeout(() => process.exit(1), 100);
 });
+
+// Self-check: make an internal request to the health route to verify the app
+// is serving requests from inside the container. This log helps identify
+// whether the reverse proxy (Railway) or the app is the source of 502s.
+const http = require('http');
+function checkLocalHealth() {
+  const opts = {
+    hostname: '127.0.0.1',
+    port: PORT,
+    path: '/health',
+    method: 'GET',
+    timeout: 2000
+  };
+
+  const req = http.request(opts, (res) => {
+    let data = '';
+    res.on('data', (chunk) => (data += chunk));
+    res.on('end', () => {
+      logger.info('Local health check response', { statusCode: res.statusCode, body: data });
+    });
+  });
+
+  req.on('error', (err) => {
+    logger.error('Local health check failed', err && err.stack ? err.stack : err);
+  });
+
+  req.on('timeout', () => {
+    logger.warn('Local health check timed out');
+    req.destroy();
+  });
+
+  req.end();
+}
+
+// Delay slightly to allow server to bind
+setTimeout(checkLocalHealth, 250);
