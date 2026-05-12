@@ -69,7 +69,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   logger.error('Unhandled error in request', err && err.stack ? err.stack : err);
-  res.status(500).json({ ok: false, error: 'Error interno' });
+  res.status(500).json({ ok: false, error: 'Error interno', source: 'app:error-handler' });
 });
 
 module.exports = app;

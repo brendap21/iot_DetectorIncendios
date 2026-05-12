@@ -23,7 +23,11 @@ const guardarLectura = async (req, res) => {
     res.status(201).json({ ok: true, id: doc.id, data: lectura });
   } catch (error) {
     logger.error('Error guardando lectura', error && error.stack ? error.stack : error);
-    res.status(500).json({ ok: false, error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: error && error.message ? error.message : 'Error en controlador',
+      source: 'controller:guardarLectura'
+    });
   }
 };
 
