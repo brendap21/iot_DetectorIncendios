@@ -12,6 +12,8 @@ const guardarLectura = async (req, res) => {
   }
 
   try {
+    logger.info('Request body completo', req.body);
+    
     const { llama, gas, movimiento } = req.body;
 
     const lectura = { llama, gas, movimiento, fecha: new Date() };
