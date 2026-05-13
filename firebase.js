@@ -9,11 +9,18 @@ function normalizePrivateKey(privateKey) {
     return '';
   }
 
-  return privateKey
+  let normalized = privateKey
     .replace(/^"|"$/g, '')
     .replace(/\\n/g, '\n')
     .replace(/\r\n/g, '\n')
     .trim();
+
+  // Handle case where newlines are double-escaped: \\\\n (literal backslash-n)
+  if (normalized.includes('\\n')) {
+    normalized = normalized.replace(/\\n/g, '\n');
+  }
+
+  return normalized;
 }
 
 function normalizeServiceAccount(serviceAccount) {
@@ -88,9 +95,30 @@ let firebaseInitError = null;
 
 const serviceAccount = loadServiceAccount();
 
+logger.info('Firebase credential sources available', {
+  hasProjectId: Boolean(process.env.FIREBASE_PROJECT_ID),
+  hasClientEmail: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
+  hasPrivateKey: Boolean(process.env.FIREBASE_PRIVATE_KEY),
+  hasServiceAccountJson: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+  hasGoogleAppCreds: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+});
+
 if (serviceAccount) {
   try {
     logger.info('Initializing Firebase Admin SDK');
+    
+    const keyPreview = serviceAccount.privateKey
+      ? `${serviceAccount.privateKey.slice(0, 50)}...${serviceAccount.privateKey.slice(-50)}`
+      : '(missing)';
+    
+    logger.info('Firebase credential loaded', {
+      projectId: serviceAccount.projectId,
+      clientEmail: serviceAccount.clientEmail,
+      privateKeyPreview: keyPreview,
+      hasBeginMarker: serviceAccount.privateKey?.includes('-----BEGIN PRIVATE KEY-----') || false,
+      hasEndMarker: serviceAccount.privateKey?.includes('-----END PRIVATE KEY-----') || false
+    });
+    
     if (!admin.apps.length) {
       const hasPemHeaders = typeof serviceAccount.privateKey === 'string'
         && serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----');
