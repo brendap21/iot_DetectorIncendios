@@ -33,4 +33,43 @@ const guardarLectura = async (req, res) => {
   }
 };
 
-module.exports = { guardarLectura };
+const obtenerLecturasRecientes = async (req, res) => {
+  if (!isFirebaseConfigured || !db) {
+    logger.warn('Recent readings requested but Firebase is not configured', { path: req.path });
+    return res.status(503).json({ ok: false, error: 'Firebase no está configurado en este entorno' });
+  }
+
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+    const snapshot = await db.collection('lecturas')
+      .orderBy('fecha', 'desc')
+      .limit(limit)
+      .get();
+
+    const lecturas = snapshot.docs.map((doc) => {
+      const data = doc.data() || {};
+      const fecha = data.fecha && typeof data.fecha.toDate === 'function'
+        ? data.fecha.toDate().toISOString()
+        : (data.fecha ? new Date(data.fecha).toISOString() : null);
+
+      return {
+        id: doc.id,
+        llama: data.llama,
+        gas: data.gas,
+        movimiento: data.movimiento,
+        fecha
+      };
+    });
+
+    return res.status(200).json({ ok: true, count: lecturas.length, lecturas });
+  } catch (error) {
+    logger.error('Error obteniendo lecturas recientes', error && error.stack ? error.stack : error);
+    return res.status(500).json({
+      ok: false,
+      error: error && error.message ? error.message : 'Error obteniendo lecturas',
+      source: 'controller:obtenerLecturasRecientes'
+    });
+  }
+};
+
+module.exports = { guardarLectura, obtenerLecturasRecientes };
