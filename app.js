@@ -68,7 +68,24 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error in request', err && err.stack ? err.stack : err);
+  const reqCtx = {
+    method: req.method,
+    url: req.originalUrl,
+    remote: req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip,
+    headers: {
+      host: req.headers.host,
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-railway-request-id': req.headers['x-railway-request-id'] || req.headers['x-request-id']
+    }
+  };
+
+  logger.error('Unhandled error in request', {
+    message: err && err.message,
+    stack: err && err.stack,
+    request: reqCtx
+  });
+
+  // Respond with generic message but include source so we can differentiate
   res.status(500).json({ ok: false, error: 'Error interno', source: 'app:error-handler' });
 });
 
