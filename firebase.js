@@ -21,10 +21,15 @@ function normalizeServiceAccount(serviceAccount) {
     return null;
   }
 
-  const normalized = { ...serviceAccount };
+  const normalized = {
+    projectId: serviceAccount.projectId || serviceAccount.project_id,
+    clientEmail: serviceAccount.clientEmail || serviceAccount.client_email,
+    privateKey: serviceAccount.privateKey || serviceAccount.private_key,
+    privateKeyId: serviceAccount.privateKeyId || serviceAccount.private_key_id
+  };
 
-  if (normalized.private_key) {
-    normalized.private_key = normalizePrivateKey(normalized.private_key);
+  if (normalized.privateKey) {
+    normalized.privateKey = normalizePrivateKey(normalized.privateKey);
   }
 
   return normalized;
@@ -88,12 +93,11 @@ if (serviceAccount) {
     logger.info('Initializing Firebase Admin SDK');
     if (!admin.apps.length) {
       const hasPemHeaders = typeof serviceAccount.privateKey === 'string'
-        ? serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----')
-        : typeof serviceAccount.private_key === 'string' && serviceAccount.private_key.includes('-----BEGIN PRIVATE KEY-----');
+        && serviceAccount.privateKey.includes('-----BEGIN PRIVATE KEY-----');
 
       logger.info('Firebase service account prepared', {
-        projectId: serviceAccount.projectId || serviceAccount.project_id,
-        clientEmail: serviceAccount.clientEmail || serviceAccount.client_email,
+        projectId: serviceAccount.projectId,
+        clientEmail: serviceAccount.clientEmail,
         hasPemHeaders
       });
 
