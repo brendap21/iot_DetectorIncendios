@@ -59,125 +59,284 @@ app.get('/health', (req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// HTML helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the CSS class and display text for a risk level string.
+ * @param {string|null} riesgo
+ * @returns {{ cls: string, texto: string }}
+ */
+function riesgoMeta(riesgo) {
+  switch (riesgo) {
+    case 'alto':  return { cls: 'tag-alto',   texto: 'Alto' };
+    case 'medio': return { cls: 'tag-medio',  texto: 'Medio' };
+    default:      return { cls: 'tag-normal', texto: 'Normal' };
+  }
+}
+
+/**
+ * Produces a one-sentence human-readable interpretation of the latest reading.
+ * Shown prominently above the table so the state is immediately understandable.
+ *
+ * @param {{ llama:number, gas:number, movimiento:number, riesgo:string, anomalia:boolean, prediccion_gas:string }|undefined} ultima
+ * @returns {string} HTML string
+ */
+function interpretarEstado(ultima) {
+  if (!ultima) return '<p class="interp">Sin datos todavia.</p>';
+
+  const partes = [];
+
+  if (ultima.llama === 1) {
+    partes.push('Se detecto llama.');
+  } else {
+    partes.push('No se detecta llama.');
+  }
+
+  partes.push(`Gas: ${ultima.gas} ADC.`);
+
+  if (ultima.prediccion_gas === 'subiendo') {
+    partes.push('La concentracion de gas va en aumento.');
+  } else if (ultima.prediccion_gas === 'bajando') {
+    partes.push('La concentracion de gas esta bajando.');
+  } else {
+    partes.push('Nivel de gas estable.');
+  }
+
+  // movimiento=0 means motion detected (inverted PIR from main.cpp)
+  if (ultima.movimiento === 0) {
+    partes.push('Hay movimiento en el area.');
+  }
+
+  if (ultima.anomalia) {
+    partes.push('La lectura es estadisticamente anomala respecto al historico.');
+  }
+
+  const { cls, texto } = riesgoMeta(ultima.riesgo);
+  return `
+    <div class="interp-wrap">
+      <span class="tag ${cls}">${texto}</span>
+      <p class="interp">${partes.join(' ')}</p>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Page renderer
+// ---------------------------------------------------------------------------
+
 function renderResultadosPage(lecturas, meta) {
-  const rows = lecturas.map((lectura) => `
+  const ultima = lecturas[0];
+
+  const rows = lecturas.map((lectura) => {
+    const { cls, texto } = riesgoMeta(lectura.riesgo);
+    const movDetectado   = lectura.movimiento === 0 ? 'Si' : 'No';
+    const anomalia       = lectura.anomalia === true ? 'Si' : lectura.anomalia === false ? 'No' : '-';
+    const tendencia      = lectura.prediccion_gas ?? '-';
+    const fecha          = lectura.fecha ? new Date(lectura.fecha).toLocaleString('es-MX') : 'Sin fecha';
+
+    return `
     <tr>
-      <td>${lectura.fecha ? new Date(lectura.fecha).toLocaleString('es-MX') : 'Sin fecha'}</td>
-      <td>${lectura.llama ?? '-'}</td>
+      <td>${fecha}</td>
+      <td class="${lectura.llama === 1 ? 'val-alerta' : ''}">${lectura.llama === 1 ? 'Si' : 'No'}</td>
       <td>${lectura.gas ?? '-'}</td>
-      <td>${lectura.movimiento ?? '-'}</td>
-      <td>${lectura.riesgo ? `<span class="risk-badge badge-${lectura.riesgo}">${lectura.riesgo}</span>` : '-'}</td>
-      <td>${lectura.anomalia === true ? '<span class="risk-badge badge-alto">si</span>' : lectura.anomalia === false ? '<span class="risk-badge badge-normal">no</span>' : '-'}</td>
-      <td>${lectura.prediccion_gas ?? '-'}</td>
-      <td>${lectura.id}</td>
-    </tr>
-  `).join('');
+      <td>${movDetectado}</td>
+      <td><span class="tag ${cls}">${texto}</span></td>
+      <td class="${lectura.anomalia === true ? 'val-alerta' : ''}">${anomalia}</td>
+      <td>${tendencia}</td>
+    </tr>`;
+  }).join('');
 
   return `<!doctype html>
-  <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="10" />
-    <title>Resultados - IoT Detector Incendios</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #0b1220;
-        --panel: #111a2e;
-        --panel-2: #17233d;
-        --text: #e8eefc;
-        --muted: #97a6c6;
-        --accent: #62d0ff;
-        --ok: #39d98a;
-        --border: rgba(255,255,255,0.08);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: radial-gradient(circle at top, #162445 0%, var(--bg) 48%, #060b14 100%);
-        color: var(--text);
-        min-height: 100vh;
-      }
-      .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 20px 56px; }
-      .hero {
-        display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-        padding: 24px; border: 1px solid var(--border); border-radius: 20px;
-        background: linear-gradient(180deg, rgba(17,26,46,0.96), rgba(11,18,32,0.96));
-        box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-      }
-      h1 { margin: 0 0 10px; font-size: clamp(28px, 4vw, 44px); }
-      p { margin: 0; color: var(--muted); line-height: 1.5; }
-      .badge {
-        display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px;
-        background: rgba(57,217,138,0.12); color: var(--ok); font-weight: 700; border: 1px solid rgba(57,217,138,0.25);
-      }
-      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
-      .card { background: rgba(23,35,61,0.9); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
-      .card .label { color: var(--muted); font-size: 13px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .08em; }
-      .card .value { font-size: 28px; font-weight: 800; }
-      .table-wrap { overflow-x: auto; background: rgba(17,26,46,0.9); border: 1px solid var(--border); border-radius: 18px; }
-      table { width: 100%; border-collapse: collapse; min-width: 720px; }
-      th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); }
-      th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; background: rgba(255,255,255,0.02); }
-      tr:hover td { background: rgba(255,255,255,0.02); }
-      .footer { margin-top: 16px; color: var(--muted); font-size: 14px; }
-      a { color: var(--accent); text-decoration: none; }
-      .risk-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; text-transform: capitalize; }
-      .badge-normal { background: rgba(57,217,138,0.15); color: #39d98a; border: 1px solid rgba(57,217,138,0.3); }
-      .badge-medio  { background: rgba(255,189,46,0.15);  color: #ffbd2e; border: 1px solid rgba(255,189,46,0.3); }
-      .badge-alto   { background: rgba(255,85,85,0.15);   color: #ff5555; border: 1px solid rgba(255,85,85,0.3);  }
-    </style>
-  </head>
-  <body>
-    <main class="wrap">
-      <section class="hero">
-        <div>
-          <span class="badge">Sistema activo</span>
-          <h1>Resultados en tiempo real</h1>
-          <p>Últimas lecturas que sube el ESP32 al backend y se guardan en Firestore.</p>
-        </div>
-        <div>
-          <div class="card">
-            <div class="label">Lecturas visibles</div>
-            <div class="value">${meta.count}</div>
-          </div>
-        </div>
-      </section>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="10" />
+  <title>Monitor IoT - Detector de Incendios</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      <section class="stats">
-        <div class="card"><div class="label">Estado backend</div><div class="value" style="font-size:20px;">Online</div></div>
-        <div class="card"><div class="label">Última actualización</div><div class="value" style="font-size:20px;">${new Date().toLocaleString('es-MX')}</div></div>
-        <div class="card"><div class="label">Auto refresh</div><div class="value" style="font-size:20px;">10 s</div></div>
-      </section>
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
 
-      <section class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Llama</th>
-              <th>Gas</th>
-              <th>Movimiento</th>
-              <th>Riesgo</th>
-              <th>Anomal&#237;a</th>
-              <th>Gas previsto</th>
-              <th>ID documento</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || '<tr><td colspan="5">Aún no hay lecturas guardadas.</td></tr>'}
-          </tbody>
-        </table>
-      </section>
+    /* ---- header ---- */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.02em; }
+    header span { font-size: 13px; color: #aab; }
 
-      <div class="footer">
-        También puedes ver el JSON en <a href="/api/sensores/ultimas" target="_blank" rel="noreferrer">/api/sensores/ultimas</a>.
+    /* ---- layout ---- */
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 48px; }
+
+    /* ---- section titles ---- */
+    h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
+         letter-spacing: 0.08em; color: #555; margin: 28px 0 12px; }
+
+    /* ---- sensor cards ---- */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e8;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .card .c-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .card .c-value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
+    .card .c-unit  { font-size: 12px; color: #aaa; margin-top: 2px; }
+    .card.alerta   { border-color: #e74c3c; background: #fff5f5; }
+    .card.alerta .c-value { color: #c0392b; }
+
+    /* ---- interpretacion ---- */
+    .interp-wrap {
+      background: #fff;
+      border: 1px solid #e0e0e8;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .interp { font-size: 15px; color: #333; line-height: 1.6; }
+
+    /* ---- tags ---- */
+    .tag {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    .tag-normal { background: #e8f8f0; color: #1e8449; border: 1px solid #a9dfbf; }
+    .tag-medio  { background: #fef9e7; color: #b7770d; border: 1px solid #f9e79f; }
+    .tag-alto   { background: #fdf2f2; color: #c0392b; border: 1px solid #f5b7b1; }
+
+    /* ---- table ---- */
+    .table-wrap {
+      background: #fff;
+      border: 1px solid #e0e0e8;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    thead tr { background: #f7f8fa; }
+    th {
+      padding: 11px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #777;
+      border-bottom: 1px solid #e8e8ee;
+    }
+    td {
+      padding: 11px 16px;
+      font-size: 14px;
+      color: #333;
+      border-bottom: 1px solid #f0f0f5;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+    td.val-alerta { color: #c0392b; font-weight: 600; }
+
+    /* ---- footer ---- */
+    footer {
+      margin-top: 32px;
+      font-size: 13px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    footer a { color: #3c6bce; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Monitor IoT — Detector de Incendios</h1>
+    <span>Actualiza cada 10 s &nbsp;|&nbsp; ${new Date().toLocaleString('es-MX')}</span>
+  </header>
+
+  <main>
+
+    <h2>Ultima lectura</h2>
+    <div class="cards">
+      <div class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
+        <div class="c-label">Llama</div>
+        <div class="c-value">${ultima ? (ultima.llama === 1 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-unit">KY-026</div>
       </div>
-    </main>
-  </body>
-  </html>`;
+      <div class="card">
+        <div class="c-label">Gas</div>
+        <div class="c-value">${ultima ? ultima.gas : '-'}</div>
+        <div class="c-unit">ADC (0-4095)</div>
+      </div>
+      <div class="card">
+        <div class="c-label">Movimiento</div>
+        <div class="c-value">${ultima ? (ultima.movimiento === 0 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-unit">PIR</div>
+      </div>
+      <div class="card">
+        <div class="c-label">Lecturas cargadas</div>
+        <div class="c-value">${meta.count}</div>
+        <div class="c-unit">ultimas 20</div>
+      </div>
+    </div>
+
+    <h2>Analisis ML</h2>
+    ${interpretarEstado(ultima)}
+
+    <h2>Historial</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Llama</th>
+            <th>Gas (ADC)</th>
+            <th>Movimiento</th>
+            <th>Nivel de riesgo</th>
+            <th>Anomalia</th>
+            <th>Tendencia gas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:24px;">Sin lecturas guardadas.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <footer>
+    <span>Proyecto IoT — CETI 7mo semestre</span>
+    <a href="/api/sensores/ultimas" target="_blank" rel="noreferrer">Ver JSON completo</a>
+  </footer>
+</body>
+</html>`;
 }
 
 app.get('/resultados', async (req, res, next) => {
