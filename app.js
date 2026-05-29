@@ -149,7 +149,7 @@ function renderResultadosPage(lecturas, meta) {
     const movDetectado   = lectura.movimiento === 0 ? 'Si' : 'No';
     const anomalia       = lectura.anomalia === true ? 'Si' : lectura.anomalia === false ? 'No' : '-';
     const tendencia      = lectura.prediccion_gas ?? '-';
-    const fecha          = lectura.fecha ? new Date(lectura.fecha).toLocaleString('es-MX') : 'Sin fecha';
+    const fecha          = lectura.fecha ? new Date(lectura.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
 
     return `
     <tr>
@@ -302,7 +302,7 @@ function renderResultadosPage(lecturas, meta) {
 <body>
   <header>
     <h1>Monitor IoT — Detector de Incendios</h1>
-    <span>Actualiza cada 10 s &nbsp;|&nbsp; ${new Date().toLocaleString('es-MX')}</span>
+    <span>Actualiza cada 10 s &nbsp;|&nbsp; ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
   </header>
 
   <main>
@@ -337,7 +337,7 @@ function renderResultadosPage(lecturas, meta) {
     <h2>Gas en el tiempo</h2>
     <div class="chart-wrap">
       <canvas id="gasChart"
-        data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""))}'
+        data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
         data-gas='${JSON.stringify(lecturas.slice().reverse().map(l => l.gas ?? null))}'
         data-riesgo='${JSON.stringify(lecturas.slice().reverse().map(l => l.riesgo ?? "normal"))}'
       ></canvas>
