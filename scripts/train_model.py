@@ -137,7 +137,17 @@ def export_classifier(clf: RandomForestClassifier) -> None:
 
     # Input type: one row of [llama, gas, movimiento] as float32.
     initial_type = [("X", FloatTensorType([None, len(FEATURES)]))]
-    onnx_model   = to_onnx(clf, initial_types=initial_type, target_opset=12)
+
+    # zipmap=False is required: skl2onnx by default adds a ZipMap operator that
+    # converts class probabilities to a dict, which onnxruntime-node does not
+    # support ("Non tensor type is temporarily not supported"). Disabling it
+    # keeps all outputs as plain tensors.
+    onnx_model = to_onnx(
+        clf,
+        initial_types=initial_type,
+        target_opset=12,
+        options={id(clf): {"zipmap": False}},
+    )
 
     with open(CLASSIFIER_ONNX, "wb") as fh:
         fh.write(onnx_model.SerializeToString())
