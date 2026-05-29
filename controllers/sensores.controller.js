@@ -60,6 +60,27 @@ const guardarLectura = async (req, res) => {
 
     logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
+    // Log a high-visibility warning when risk is elevated so it stands out in
+    // Railway's log stream and can be filtered with a keyword alert if needed.
+    if (riesgo === 'alto') {
+      logger.warn('ALERTA RIESGO ALTO', {
+        id: doc.id,
+        llama,
+        gas,
+        movimiento,
+        anomalia,
+        prediccion_gas,
+        fecha: lectura.fecha,
+      });
+    } else if (riesgo === 'medio' && anomalia) {
+      logger.warn('ALERTA RIESGO MEDIO + ANOMALIA', {
+        id: doc.id,
+        gas,
+        prediccion_gas,
+        fecha: lectura.fecha,
+      });
+    }
+
     res.status(201).json({ ok: true, id: doc.id, data: lectura });
   } catch (error) {
     logger.error('Error guardando lectura', error && error.stack ? error.stack : error);
