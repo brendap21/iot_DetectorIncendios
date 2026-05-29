@@ -1,6 +1,5 @@
 // app.js - build and export Express application (middleware, routes, error handlers)
-require('dotenv').config();
-const express = require('express');
+require('dotenv').config();const path    = require('path');const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -11,8 +10,25 @@ const { db, isFirebaseConfigured, firebaseInitError } = require('./firebase');
 
 const app = express();
 
-// Basic security headers
-app.use(helmet());
+// Security headers — CSP permits the jsDelivr CDN (for Chart.js) and same-origin
+// scripts only. No unsafe-inline or unsafe-eval allowed.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'", 'https://cdn.jsdelivr.net'],
+      styleSrc:    ["'self'", "'unsafe-inline'"],
+      imgSrc:      ["'self'", 'data:'],
+      connectSrc:  ["'self'"],
+      fontSrc:     ["'self'"],
+      objectSrc:   ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
+
+// Serve the static chart helper from /public
+app.use(express.static(path.join(__dirname, 'public')));
 
 // CORS
 app.use(cors());
@@ -320,7 +336,11 @@ function renderResultadosPage(lecturas, meta) {
 
     <h2>Gas en el tiempo</h2>
     <div class="chart-wrap">
-      <canvas id="gasChart"></canvas>
+      <canvas id="gasChart"
+        data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""))}'
+        data-gas='${JSON.stringify(lecturas.slice().reverse().map(l => l.gas ?? null))}'
+        data-riesgo='${JSON.stringify(lecturas.slice().reverse().map(l => l.riesgo ?? "normal"))}'
+      ></canvas>
     </div>
 
     <h2>Historial</h2>
@@ -349,55 +369,9 @@ function renderResultadosPage(lecturas, meta) {
     <span>Proyecto IoT — CETI 7mo semestre</span>
     <a href="/api/sensores/ultimas" target="_blank" rel="noreferrer">Ver JSON completo</a>
   </footer>
+  <!-- Chart.js from jsDelivr (allowed by CSP) and the chart init script served from /public -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-    // Build chart from the server-rendered data — no extra HTTP request needed.
-    // Readings arrive newest-first from Firestore; reverse to show chronological order.
-    const rawLabels = ${JSON.stringify(lecturas.map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''))}.reverse();
-    const rawGas    = ${JSON.stringify(lecturas.map(l => l.gas ?? null))}.reverse();
-    const rawRiesgo = ${JSON.stringify(lecturas.map(l => l.riesgo ?? 'normal'))}.reverse();
-
-    // Map risk level to a point color so high-risk readings stand out on the chart.
-    const pointColors = rawRiesgo.map(r => {
-      if (r === 'alto')  return '#c0392b';
-      if (r === 'medio') return '#b7770d';
-      return '#1e8449';
-    });
-
-    new Chart(document.getElementById('gasChart'), {
-      type: 'line',
-      data: {
-        labels: rawLabels,
-        datasets: [{
-          label: 'Gas (ADC)',
-          data: rawGas,
-          borderColor: '#3c6bce',
-          backgroundColor: 'rgba(60,107,206,0.08)',
-          pointBackgroundColor: pointColors,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          tension: 0.3,
-          fill: true,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              afterLabel: (ctx) => 'Riesgo: ' + rawRiesgo[ctx.dataIndex]
-            }
-          }
-        },
-        scales: {
-          x: { ticks: { font: { size: 11 }, maxRotation: 45 } },
-          y: { beginAtZero: false, ticks: { font: { size: 11 } } }
-        }
-      }
-    });
-  </script>
+  <script src="/gas-chart.js"></script>
 </body>
 </html>`;
 }
