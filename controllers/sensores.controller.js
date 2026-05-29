@@ -1,9 +1,19 @@
-// Controller: guardarLectura
-// Receives sensor payload and persists it to Firestore. If Firestore
-// is not configured, respond with 503 so the deploy proxy can distinguish
-// between application-level errors and infrastructure problems.
-const { db, isFirebaseConfigured, firebaseInitError } = require('../firebase');
+/**
+ * @fileoverview Controller for sensor reading persistence.
+ *
+ * Receives a validated sensor payload, runs ML analysis (risk classification,
+ * anomaly detection, and gas trend prediction), and persists the enriched
+ * document to Firestore.
+ */
+
+'use strict';
+
+const { db, isFirebaseConfigured } = require('../firebase');
 const logger = require('../logger');
+const { clasificarRiesgo, detectarAnomalia, predecirTendencia } = require('../services/ml.service');
+
+// Number of recent readings fetched from Firestore to compute gas trend.
+const TREND_WINDOW = 10;
 
 const guardarLectura = async (req, res) => {
   if (!isFirebaseConfigured || !db) {
@@ -13,14 +23,42 @@ const guardarLectura = async (req, res) => {
 
   try {
     logger.info('Request body completo', req.body);
-    
+
     const { llama, gas, movimiento } = req.body;
 
-    const lectura = { llama, gas, movimiento, fecha: new Date() };
+    // Fetch recent readings before saving so the new reading is not included
+    // in its own trend calculation.
+    let ultimasLecturas = [];
+    try {
+      const recentSnapshot = await db.collection('lecturas')
+        .orderBy('fecha', 'desc')
+        .limit(TREND_WINDOW)
+        .get();
+      ultimasLecturas = recentSnapshot.docs.map((doc) => doc.data());
+    } catch (fetchErr) {
+      // Non-fatal: predecirTendencia will return "estable" for an empty array.
+      logger.warn('Could not fetch recent readings for trend analysis', fetchErr.message);
+    }
+
+    // Run all three ML analyses. clasificarRiesgo is async (ONNX inference);
+    // the other two are synchronous and can run without awaiting.
+    const riesgo        = await clasificarRiesgo({ llama, gas, movimiento });
+    const anomalia      = detectarAnomalia({ llama, gas, movimiento });
+    const prediccion_gas = predecirTendencia(ultimasLecturas);
+
+    const lectura = {
+      llama,
+      gas,
+      movimiento,
+      fecha: new Date(),
+      riesgo,
+      anomalia,
+      prediccion_gas,
+    };
 
     const doc = await db.collection('lecturas').add(lectura);
 
-    logger.info('Lectura guardada', { id: doc.id });
+    logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
     res.status(201).json({ ok: true, id: doc.id, data: lectura });
   } catch (error) {
@@ -28,7 +66,7 @@ const guardarLectura = async (req, res) => {
     res.status(500).json({
       ok: false,
       error: error && error.message ? error.message : 'Error en controlador',
-      source: 'controller:guardarLectura'
+      source: 'controller:guardarLectura',
     });
   }
 };

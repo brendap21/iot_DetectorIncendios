@@ -66,6 +66,9 @@ function renderResultadosPage(lecturas, meta) {
       <td>${lectura.llama ?? '-'}</td>
       <td>${lectura.gas ?? '-'}</td>
       <td>${lectura.movimiento ?? '-'}</td>
+      <td>${lectura.riesgo ? `<span class="risk-badge badge-${lectura.riesgo}">${lectura.riesgo}</span>` : '-'}</td>
+      <td>${lectura.anomalia === true ? '<span class="risk-badge badge-alto">si</span>' : lectura.anomalia === false ? '<span class="risk-badge badge-normal">no</span>' : '-'}</td>
+      <td>${lectura.prediccion_gas ?? '-'}</td>
       <td>${lectura.id}</td>
     </tr>
   `).join('');
@@ -121,6 +124,10 @@ function renderResultadosPage(lecturas, meta) {
       tr:hover td { background: rgba(255,255,255,0.02); }
       .footer { margin-top: 16px; color: var(--muted); font-size: 14px; }
       a { color: var(--accent); text-decoration: none; }
+      .risk-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; text-transform: capitalize; }
+      .badge-normal { background: rgba(57,217,138,0.15); color: #39d98a; border: 1px solid rgba(57,217,138,0.3); }
+      .badge-medio  { background: rgba(255,189,46,0.15);  color: #ffbd2e; border: 1px solid rgba(255,189,46,0.3); }
+      .badge-alto   { background: rgba(255,85,85,0.15);   color: #ff5555; border: 1px solid rgba(255,85,85,0.3);  }
     </style>
   </head>
   <body>
@@ -153,6 +160,9 @@ function renderResultadosPage(lecturas, meta) {
               <th>Llama</th>
               <th>Gas</th>
               <th>Movimiento</th>
+              <th>Riesgo</th>
+              <th>Anomal&#237;a</th>
+              <th>Gas previsto</th>
               <th>ID documento</th>
             </tr>
           </thead>
@@ -192,7 +202,10 @@ app.get('/resultados', async (req, res, next) => {
         llama: data.llama,
         gas: data.gas,
         movimiento: data.movimiento,
-        fecha
+        fecha,
+        riesgo:        data.riesgo        ?? null,
+        anomalia:      data.anomalia      ?? null,
+        prediccion_gas: data.prediccion_gas ?? null,
       };
     });
 
