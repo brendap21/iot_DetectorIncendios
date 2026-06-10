@@ -3,8 +3,13 @@
 
   var installPromptEvent = null;
   var installBtn = document.getElementById('installAppBtn');
-  var pushBtn = document.getElementById('enablePushBtn');
+  var pushBtn = document.getElementById('navbarEnablePushBtn');
   var alertsList = document.getElementById('alertsList');
+  var navbarNotifList = document.getElementById('navbarNotifList');
+  var notifBellBtn = document.getElementById('notifBellBtn');
+  var notifBadge = document.getElementById('notifBadge');
+  var navbarNotifMenu = document.getElementById('navbarNotifMenu');
+  var notifStatus = document.getElementById('notifStatus');
   var severityFilter = document.getElementById('severityFilter');
   var onlyUnreadAlerts = document.getElementById('onlyUnreadAlerts');
   var lastCriticalAlertId = null;
@@ -91,33 +96,25 @@
     await refreshAlerts();
   }
 
-  function renderAlerts(items) {
-    if (!alertsList) {
+  function setNotifBadge(items) {
+    if (!notifBadge) {
       return;
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      alertsList.innerHTML = '<li><strong>Sin alertas nuevas</strong><div class="meta">Cuando ocurra un evento critico aparecera aqui.</div></li>';
+    var unread = Array.isArray(items)
+      ? items.filter(function (a) { return a && a.leida !== true; }).length
+      : 0;
+
+    notifBadge.textContent = String(unread);
+    notifBadge.style.display = unread > 0 ? 'inline-flex' : 'none';
+  }
+
+  function bindReadButtons(root) {
+    if (!root) {
       return;
     }
 
-    alertsList.innerHTML = items.map(function (a) {
-      var sev = a.severidad || 'medium';
-      var fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
-      var estado = a.leida ? 'Leida' : 'No leida';
-      var estadoClass = a.leida ? 'badge-state read' : 'badge-state';
-      var btn = a.leida
-        ? '<button class="btn-mark-read" disabled>Leida</button>'
-        : '<button class="btn-mark-read" data-alert-id="' + a.id + '">Marcar leida</button>';
-
-      return '<li class="' + sev + '">' +
-        '<div class="alert-top"><strong>' + (a.titulo || 'Alerta') + '</strong><span class="' + estadoClass + '">' + estado + '</span>' + btn + '</div>' +
-        '<div>' + (a.mensaje || '') + '</div>' +
-        '<div class="meta">' + fecha + ' · ' + (a.tipo || '-') + '</div>' +
-      '</li>';
-    }).join('');
-
-    var readButtons = alertsList.querySelectorAll('.btn-mark-read[data-alert-id]');
+    var readButtons = root.querySelectorAll('.btn-mark-read[data-alert-id]');
     readButtons.forEach(function (btn) {
       btn.addEventListener('click', function () {
         var alertId = btn.getAttribute('data-alert-id');
@@ -131,6 +128,43 @@
         });
       });
     });
+  }
+
+  function renderAlertItems(items, compact) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '<li><strong>Sin alertas nuevas</strong><div class="meta">Cuando ocurra un evento critico aparecera aqui.</div></li>';
+    }
+
+    return items.map(function (a) {
+      var sev = a.severidad || 'medium';
+      var fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
+      var estado = a.leida ? 'Leida' : 'No leida';
+      var estadoClass = a.leida ? 'badge-state read' : 'badge-state';
+      var btn = a.leida
+        ? '<button class="btn-mark-read" disabled>Leida</button>'
+        : '<button class="btn-mark-read" data-alert-id="' + a.id + '">Marcar leida</button>';
+      var compactStyle = compact ? ' style="margin-bottom:2px;"' : '';
+
+      return '<li class="' + sev + '">' +
+        '<div class="alert-top"' + compactStyle + '><strong>' + (a.titulo || 'Alerta') + '</strong><span class="' + estadoClass + '">' + estado + '</span>' + btn + '</div>' +
+        '<div>' + (a.mensaje || '') + '</div>' +
+        '<div class="meta">' + fecha + ' · ' + (a.tipo || '-') + '</div>' +
+      '</li>';
+    }).join('');
+  }
+
+  function renderAlerts(items) {
+    if (alertsList) {
+      alertsList.innerHTML = renderAlertItems(items, false);
+      bindReadButtons(alertsList);
+    }
+
+    if (navbarNotifList) {
+      navbarNotifList.innerHTML = renderAlertItems(items, true);
+      bindReadButtons(navbarNotifList);
+    }
+
+    setNotifBadge(items);
   }
 
   async function refreshAlerts() {
@@ -148,8 +182,17 @@
       }
 
       renderAlerts(alertas);
+
+      if (notifStatus) {
+        notifStatus.textContent = alertas.length > 0
+          ? 'Tienes ' + alertas.length + ' alertas recientes'
+          : 'Sin alertas nuevas';
+      }
     } catch (error) {
       console.warn('No se pudieron cargar alertas:', error.message);
+      if (notifStatus) {
+        notifStatus.textContent = 'No se pudieron cargar notificaciones';
+      }
     }
   }
 
@@ -186,6 +229,55 @@
       pushBtn.textContent = 'Notificaciones activadas';
       pushBtn.disabled = true;
     }
+
+    if (notifStatus) {
+      notifStatus.textContent = 'Push activo en este dispositivo';
+    }
+  }
+
+  async function checkPushAvailability() {
+    try {
+      var data = await fetchJson('/api/alertas/public-key');
+
+      if (data && data.publicKey) {
+        if (notifStatus) {
+          notifStatus.textContent = 'Push disponible. Activalo en este dispositivo.';
+        }
+        return true;
+      }
+    } catch (error) {
+      if (pushBtn) {
+        pushBtn.textContent = 'Notificaciones no disponibles';
+        pushBtn.disabled = true;
+      }
+      if (notifStatus) {
+        notifStatus.textContent = 'Push deshabilitado en servidor (faltan llaves VAPID).';
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  function setupNavbarNotifications() {
+    if (notifBellBtn && navbarNotifMenu) {
+      notifBellBtn.addEventListener('click', function () {
+        navbarNotifMenu.classList.toggle('open');
+      });
+
+      document.addEventListener('click', function (event) {
+        if (!navbarNotifMenu.classList.contains('open')) {
+          return;
+        }
+
+        var clickedBell = notifBellBtn.contains(event.target);
+        var clickedMenu = navbarNotifMenu.contains(event.target);
+
+        if (!clickedBell && !clickedMenu) {
+          navbarNotifMenu.classList.remove('open');
+        }
+      });
+    }
   }
 
   function setupInstallPrompt() {
@@ -213,6 +305,7 @@
 
   async function init() {
     setupInstallPrompt();
+    setupNavbarNotifications();
 
     if ('serviceWorker' in navigator) {
       try {
@@ -221,6 +314,8 @@
         console.warn('No se pudo registrar service worker:', error.message);
       }
     }
+
+    await checkPushAvailability();
 
     if (pushBtn) {
       pushBtn.addEventListener('click', function () {

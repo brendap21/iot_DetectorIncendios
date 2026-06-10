@@ -176,29 +176,111 @@ function renderResultadosPage(lecturas, meta) {
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #f4f7fc;
+      --ink: #1a1a2e;
+      --muted: #5f6780;
+      --panel: #ffffff;
+      --line: #dbe2ef;
+      --primary: #2f5fbf;
+      --shadow: 0 8px 22px rgba(20, 35, 70, 0.08);
+      --radius: 12px;
+    }
+
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
+      background:
+        radial-gradient(1200px 420px at 10% -10%, rgba(47,95,191,0.15), transparent 70%),
+        radial-gradient(900px 300px at 100% 0, rgba(20,30,60,0.1), transparent 70%),
+        var(--bg);
+      color: var(--ink);
       min-height: 100vh;
     }
 
     /* ---- header ---- */
     header {
-      background: #1a1a2e;
+      background: linear-gradient(110deg, #17243f 0%, #1f2f57 100%);
       color: #fff;
-      padding: 18px 32px;
+      padding: 16px 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 20;
     }
-    header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.02em; }
-    header span { font-size: 13px; color: #aab; }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.01em; }
+    header span { font-size: 12px; color: #d3dcf1; }
+
+    .header-left {
+      display: grid;
+      gap: 2px;
+    }
+    .header-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .notif-wrap {
+      position: relative;
+    }
+    .notif-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: min(380px, 90vw);
+      max-height: 420px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #d5ddf0;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+      display: none;
+      z-index: 30;
+    }
+    .notif-menu.open {
+      display: block;
+    }
+    .notif-menu h3 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #4d587a;
+      margin-bottom: 8px;
+    }
+    .notif-menu ul {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+    .notif-menu li {
+      border-left: 4px solid #d0d6e6;
+      background: #f8faff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: #23304f;
+    }
+    .notif-menu li.high { border-left-color: #d68910; }
+    .notif-menu li.critical { border-left-color: #c0392b; }
+    .notif-menu .meta {
+      color: #667;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .notif-status {
+      font-size: 12px;
+      color: #6a7390;
+      margin-bottom: 8px;
+    }
 
     /* ---- layout ---- */
-    main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 48px; }
+    main { max-width: 1120px; margin: 0 auto; padding: 24px 18px 52px; }
 
     /* ---- section titles ---- */
     h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
@@ -211,10 +293,11 @@ function renderResultadosPage(lecturas, meta) {
       gap: 14px;
     }
     .card {
-      background: #fff;
-      border: 1px solid #e0e0e8;
-      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       padding: 16px 20px;
+      box-shadow: var(--shadow);
     }
     .card .c-label { font-size: 12px; color: #888; margin-bottom: 6px; }
     .card .c-value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
@@ -224,9 +307,9 @@ function renderResultadosPage(lecturas, meta) {
 
     /* ---- interpretacion ---- */
     .interp-wrap {
-      background: #fff;
-      border: 1px solid #e0e0e8;
-      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       padding: 16px 20px;
       display: flex;
       align-items: center;
@@ -252,10 +335,11 @@ function renderResultadosPage(lecturas, meta) {
 
     /* ---- table ---- */
     .table-wrap {
-      background: #fff;
-      border: 1px solid #e0e0e8;
-      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       overflow-x: auto;
+      box-shadow: var(--shadow);
     }
     table { width: 100%; border-collapse: collapse; min-width: 680px; }
     thead tr { background: #f7f8fa; }
@@ -281,10 +365,11 @@ function renderResultadosPage(lecturas, meta) {
 
     /* ---- chart ---- */
     .chart-wrap {
-      background: #fff;
-      border: 1px solid #e0e0e8;
-      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       padding: 20px 20px 16px;
+      box-shadow: var(--shadow);
     }
     .chart-wrap canvas { display: block; width: 100% !important; height: 220px !important; }
 
@@ -331,18 +416,45 @@ function renderResultadosPage(lecturas, meta) {
       border-radius: 8px;
       padding: 10px 14px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
-    .btn-primary { background: #2f5fbf; color: #fff; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--primary); color: #fff; }
     .btn-secondary { background: #efeff5; color: #1a1a2e; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:disabled:hover { transform: none; }
+
+    .btn-notif {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.24);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notif-badge {
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      padding: 0 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      line-height: 1;
+      background: #d92b2b;
+      color: #fff;
+      font-weight: 800;
+    }
 
     .alerts-panel {
-      background: #fff;
-      border: 1px solid #e0e0e8;
-      border-radius: 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
       padding: 16px 18px;
+      box-shadow: var(--shadow);
     }
     .alerts-panel ul { list-style: none; display: grid; gap: 8px; }
     .alerts-panel li {
@@ -399,6 +511,11 @@ function renderResultadosPage(lecturas, meta) {
       gap: 10px;
       margin: 10px 0 14px;
       align-items: end;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
     }
     .history-tools .wide { grid-column: span 2; }
     .history-tools .btn { width: 100%; }
@@ -414,6 +531,8 @@ function renderResultadosPage(lecturas, meta) {
 
     @media (max-width: 740px) {
       .history-tools .wide { grid-column: span 1; }
+      .header-right { width: 100%; }
+      .notif-menu { right: auto; left: 0; }
     }
 
     /* ---- footer ---- */
@@ -432,8 +551,24 @@ function renderResultadosPage(lecturas, meta) {
 </head>
 <body>
   <header>
-    <h1>Monitor IoT — Detector de Incendios</h1>
-    <span>Actualiza cada 10 s &nbsp;|&nbsp; ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+    <div class="header-left">
+      <h1>Monitor IoT — Detector de Incendios</h1>
+      <span>Actualiza cada 10 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+    </div>
+    <div class="header-right">
+      <button id="navbarEnablePushBtn" class="btn btn-primary">Activar notificaciones</button>
+      <div class="notif-wrap">
+        <button id="notifBellBtn" class="btn btn-notif" aria-label="Abrir notificaciones">
+          Notificaciones
+          <span id="notifBadge" class="notif-badge">0</span>
+        </button>
+        <div id="navbarNotifMenu" class="notif-menu" role="dialog" aria-label="Panel de notificaciones">
+          <h3>Notificaciones</h3>
+          <div id="notifStatus" class="notif-status">Sin novedades</div>
+          <ul id="navbarNotifList"></ul>
+        </div>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -467,7 +602,6 @@ function renderResultadosPage(lecturas, meta) {
     <div class="actions">
       <div class="actions-row">
         <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar Web App</button>
-        <button id="enablePushBtn" class="btn btn-primary">Activar notificaciones</button>
       </div>
       <div class="filters-row">
         <select id="severityFilter" class="filter" aria-label="Filtrar severidad">
