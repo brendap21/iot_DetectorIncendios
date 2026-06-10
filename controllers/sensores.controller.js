@@ -113,6 +113,9 @@ const guardarLectura = async (req, res) => {
           fecha: new Date(),
         };
 
+        await db.collection('alertas').add(alertaDoc);
+        runtimeStore.saveAlerta(alertaDoc);
+
         await sendAlertToAll({
           title: alerta.titulo,
           body: alerta.mensaje,
@@ -131,18 +134,6 @@ const guardarLectura = async (req, res) => {
           },
           url: '/resultados',
         });
-
-        try {
-          const alertaRef = await db.collection('alertas').add(alertaDoc);
-          runtimeStore.saveAlerta({ ...alertaDoc, id: alertaRef.id });
-        } catch (alertSaveError) {
-          // Persistencia de respaldo para no perder trazabilidad si Firestore falla.
-          runtimeStore.saveAlerta(alertaDoc);
-          logger.warn('No se pudo persistir alerta en Firestore, guardada en cache temporal', {
-            tipo: alerta.tipo,
-            error: alertSaveError && alertSaveError.message ? alertSaveError.message : String(alertSaveError),
-          });
-        }
       }
     }
 
