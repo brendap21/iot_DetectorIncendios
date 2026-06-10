@@ -11,6 +11,8 @@
 const { db, isFirebaseConfigured } = require('../firebase');
 const logger = require('../logger');
 const { clasificarRiesgo, detectarAnomalia, predecirTendencia } = require('../services/ml.service');
+const { evaluarAlertas, filtrarAlertasPorCooldown } = require('../services/alert.service');
+const { sendAlertToAll } = require('../services/push.service');
 
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
@@ -60,6 +62,41 @@ const guardarLectura = async (req, res) => {
 
     logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
+    const alertasGeneradas = evaluarAlertas({ lectura, ultimasLecturas });
+    const alertasAEnviar = filtrarAlertasPorCooldown(alertasGeneradas);
+
+    if (alertasAEnviar.length > 0) {
+      for (const alerta of alertasAEnviar) {
+        const alertaDoc = {
+          ...alerta,
+          lecturaId: doc.id,
+          leida: false,
+          fecha: new Date(),
+        };
+
+        await db.collection('alertas').add(alertaDoc);
+
+        await sendAlertToAll({
+          title: alerta.titulo,
+          body: alerta.mensaje,
+          tag: alerta.tipo,
+          severity: alerta.severidad,
+          renotify: alerta.severidad === 'critical',
+          requireInteraction: alerta.severidad === 'critical',
+          vibrate: alerta.severidad === 'critical' ? [300, 150, 300, 150, 600] : [100],
+          soundHint: alerta.severidad === 'critical' ? 'critical' : 'default',
+          data: {
+            lecturaId: doc.id,
+            tipo: alerta.tipo,
+            riesgo,
+            gas,
+            movimiento,
+          },
+          url: '/resultados',
+        });
+      }
+    }
+
     // Log a high-visibility warning when risk is elevated so it stands out in
     // Railway's log stream and can be filtered with a keyword alert if needed.
     if (riesgo === 'alto') {
@@ -100,8 +137,21 @@ const obtenerLecturasRecientes = async (req, res) => {
 
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
-    const snapshot = await db.collection('lecturas')
-      .orderBy('fecha', 'desc')
+    const beforeRaw = typeof req.query.before === 'string' ? req.query.before.trim() : '';
+    const beforeDate = beforeRaw ? new Date(beforeRaw) : null;
+
+    if (beforeRaw && Number.isNaN(beforeDate.getTime())) {
+      return res.status(400).json({ ok: false, error: 'Parametro before invalido. Usa fecha ISO 8601.' });
+    }
+
+    let query = db.collection('lecturas')
+      .orderBy('fecha', 'desc');
+
+    if (beforeDate) {
+      query = query.where('fecha', '<', beforeDate);
+    }
+
+    const snapshot = await query
       .limit(limit)
       .get();
 
@@ -116,11 +166,30 @@ const obtenerLecturasRecientes = async (req, res) => {
         llama: data.llama,
         gas: data.gas,
         movimiento: data.movimiento,
-        fecha
+        fecha,
+        riesgo: data.riesgo,
+        anomalia: data.anomalia,
+        prediccion_gas: data.prediccion_gas,
       };
     });
 
-    return res.status(200).json({ ok: true, count: lecturas.length, lecturas });
+    let nextBefore = null;
+    if (lecturas.length > 0) {
+      const ultima = lecturas[lecturas.length - 1];
+      nextBefore = ultima && ultima.fecha ? ultima.fecha : null;
+    }
+
+    return res.status(200).json({
+      ok: true,
+      count: lecturas.length,
+      lecturas,
+      page: {
+        limit,
+        before: beforeRaw || null,
+        nextBefore,
+        hasMore: lecturas.length === limit,
+      },
+    });
   } catch (error) {
     logger.error('Error obteniendo lecturas recientes', error && error.stack ? error.stack : error);
     return res.status(500).json({

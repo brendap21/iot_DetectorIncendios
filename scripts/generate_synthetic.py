@@ -50,7 +50,7 @@ MEDIO_GAS_THRESHOLD = 1100
 #   movimiento = 1  ->  NO motion detected  (normal idle state)
 #   movimiento = 0  ->  motion detected
 # Synthetic data must reflect this encoding.
-MOTION_DETECTED = 0   # value transmitted when motion IS detected
+MOTION_DETECTED = 1   # value transmitted when motion IS detected
 
 OUTPUT_PATH = Path(__file__).parent / "synthetic_data.csv"
 

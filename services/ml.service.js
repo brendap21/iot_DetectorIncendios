@@ -136,10 +136,22 @@ function getAnomalyParams() {
 const ALTO_GAS_THRESHOLD  = 1800;
 const MEDIO_GAS_THRESHOLD = 1100;
 
-// Motion encoding: main.cpp transmits !digitalRead(MOVE_PIN).
-//   movimiento = 0  -> motion detected
-//   movimiento = 1  -> no motion (idle state)
-const MOTION_DETECTED = 0;
+// Motion encoding (estandar de proyecto):
+//   movimiento = 1  -> motion detected
+//   movimiento = 0  -> no motion (idle state)
+const MOTION_DETECTED = 1;
+// Compatibilidad: los modelos ya entrenados usan 0=movimiento detectado.
+// El sistema de negocio ahora usa 1=detectado, asi que convertimos solo
+// para la entrada de modelos mientras se reentrena.
+const MODEL_EXPECTS_MOTION_DETECTED_ZERO = true;
+
+function toModelMotionValue(movimiento) {
+  if (!MODEL_EXPECTS_MOTION_DETECTED_ZERO) {
+    return movimiento;
+  }
+
+  return movimiento === 1 ? 0 : 1;
+}
 
 /**
  * Deterministic rule-based classifier used when the ONNX model is unavailable.
@@ -177,7 +189,7 @@ async function clasificarRiesgo({ llama, gas, movimiento }) {
 
   const inputTensor = new ort.Tensor(
     'float32',
-    new Float32Array([llama, gas, movimiento]),
+    new Float32Array([llama, gas, toModelMotionValue(movimiento)]),
     [1, 3],
   );
 
@@ -205,7 +217,7 @@ function detectarAnomalia({ llama, gas, movimiento }) {
   const params = getAnomalyParams();
   if (!params) return false;
 
-  const features = [llama, gas, movimiento];
+  const features = [llama, gas, toModelMotionValue(movimiento)];
   const zScores  = features.map((val, i) =>
     params.std[i] > 0 ? Math.abs((val - params.mean[i]) / params.std[i]) : 0,
   );

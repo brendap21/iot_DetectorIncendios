@@ -5,6 +5,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
 const sensoresRoutes = require('./routes/sensores.routes');
+const alertasRoutes = require('./routes/alertas.routes');
 const logger = require('./logger');
 const { db, isFirebaseConfigured, firebaseInitError } = require('./firebase');
 
@@ -120,8 +121,8 @@ function interpretarEstado(ultima) {
     partes.push('Nivel de gas estable.');
   }
 
-  // movimiento=0 means motion detected (inverted PIR from main.cpp)
-  if (ultima.movimiento === 0) {
+  // Estandar de todo el sistema: 1 = movimiento detectado.
+  if (ultima.movimiento === 1) {
     partes.push('Hay movimiento en el area.');
   }
 
@@ -146,7 +147,7 @@ function renderResultadosPage(lecturas, meta) {
 
   const rows = lecturas.map((lectura) => {
     const { cls, texto } = riesgoMeta(lectura.riesgo);
-    const movDetectado   = lectura.movimiento === 0 ? 'Si' : 'No';
+    const movDetectado   = lectura.movimiento === 1 ? 'Si' : 'No';
     const anomalia       = lectura.anomalia === true ? 'Si' : lectura.anomalia === false ? 'No' : '-';
     const tendencia      = lectura.prediccion_gas ?? '-';
     const fecha          = lectura.fecha ? new Date(lectura.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
@@ -169,6 +170,8 @@ function renderResultadosPage(lecturas, meta) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="refresh" content="10" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <title>Monitor IoT - Detector de Incendios</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -285,6 +288,134 @@ function renderResultadosPage(lecturas, meta) {
     }
     .chart-wrap canvas { display: block; width: 100% !important; height: 220px !important; }
 
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .actions-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filters-row {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter {
+      background: #fff;
+      border: 1px solid #d9deec;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #223;
+      font-size: 13px;
+    }
+    .filter-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #334;
+      background: #fff;
+      border: 1px solid #d9deec;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary { background: #2f5fbf; color: #fff; }
+    .btn-secondary { background: #efeff5; color: #1a1a2e; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .alerts-panel {
+      background: #fff;
+      border: 1px solid #e0e0e8;
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .alerts-panel ul { list-style: none; display: grid; gap: 8px; }
+    .alerts-panel li {
+      border-left: 4px solid #d0d6e6;
+      background: #fafbff;
+      padding: 10px 12px;
+      border-radius: 6px;
+    }
+    .alerts-panel li.high { border-left-color: #d68910; }
+    .alerts-panel li.critical { border-left-color: #c0392b; }
+    .alerts-panel .meta { color: #667; font-size: 12px; }
+    .alert-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .badge-state {
+      display: inline-block;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 3px 9px;
+      border: 1px solid #d5d9e8;
+      color: #556;
+      background: #f4f6fb;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-state.read {
+      background: #e8f8f0;
+      color: #1e8449;
+      border-color: #a9dfbf;
+    }
+    .btn-mark-read {
+      border: 1px solid #cbd3e6;
+      background: #fff;
+      color: #2e3a59;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-mark-read:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .history-tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+      align-items: end;
+    }
+    .history-tools .wide { grid-column: span 2; }
+    .history-tools .btn { width: 100%; }
+    .history-status {
+      font-size: 12px;
+      color: #667;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+    .history-sentinel {
+      height: 10px;
+    }
+
+    @media (max-width: 740px) {
+      .history-tools .wide { grid-column: span 1; }
+    }
+
     /* ---- footer ---- */
     footer {
       margin-top: 32px;
@@ -321,7 +452,7 @@ function renderResultadosPage(lecturas, meta) {
       </div>
       <div class="card">
         <div class="c-label">Movimiento</div>
-        <div class="c-value">${ultima ? (ultima.movimiento === 0 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-value">${ultima ? (ultima.movimiento === 1 ? 'Si' : 'No') : '-'}</div>
         <div class="c-unit">PIR</div>
       </div>
       <div class="card">
@@ -333,6 +464,31 @@ function renderResultadosPage(lecturas, meta) {
 
     <h2>Analisis ML</h2>
     ${interpretarEstado(ultima)}
+    <div class="actions">
+      <div class="actions-row">
+        <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar Web App</button>
+        <button id="enablePushBtn" class="btn btn-primary">Activar notificaciones</button>
+      </div>
+      <div class="filters-row">
+        <select id="severityFilter" class="filter" aria-label="Filtrar severidad">
+          <option value="all">Todas las severidades</option>
+          <option value="critical">Solo criticas</option>
+          <option value="high">Solo altas</option>
+          <option value="medium">Solo medias</option>
+        </select>
+        <label class="filter-check" for="onlyUnreadAlerts">
+          <input id="onlyUnreadAlerts" type="checkbox" />
+          Solo no leidas
+        </label>
+      </div>
+    </div>
+
+    <h2>Alertas recientes</h2>
+    <div class="alerts-panel">
+      <ul id="alertsList">
+        <li><strong>Sin alertas nuevas</strong><div class="meta">Activa notificaciones para recibir eventos en tu celular.</div></li>
+      </ul>
+    </div>
 
     <h2>Gas en el tiempo</h2>
     <div class="chart-wrap">
@@ -344,6 +500,30 @@ function renderResultadosPage(lecturas, meta) {
     </div>
 
     <h2>Historial</h2>
+    <div class="history-tools">
+      <select id="historyRiskFilter" class="filter" aria-label="Filtrar riesgo en historial">
+        <option value="all">Riesgo: todos</option>
+        <option value="normal">Riesgo normal</option>
+        <option value="medio">Riesgo medio</option>
+        <option value="alto">Riesgo alto</option>
+      </select>
+      <select id="historyMovimientoFilter" class="filter" aria-label="Filtrar movimiento en historial">
+        <option value="all">Movimiento: todos</option>
+        <option value="1">Con movimiento</option>
+        <option value="0">Sin movimiento</option>
+      </select>
+      <select id="historyLlamaFilter" class="filter" aria-label="Filtrar llama en historial">
+        <option value="all">Llama: todos</option>
+        <option value="1">Con llama</option>
+        <option value="0">Sin llama</option>
+      </select>
+      <select id="historyAnomaliaFilter" class="filter" aria-label="Filtrar anomalia en historial">
+        <option value="all">Anomalia: todas</option>
+        <option value="true">Solo anomalia</option>
+        <option value="false">Sin anomalia</option>
+      </select>
+      <button id="downloadHistoryPdfBtn" class="btn btn-secondary wide">Descargar todo en PDF</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -357,11 +537,13 @@ function renderResultadosPage(lecturas, meta) {
             <th>Tendencia gas</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="historyTableBody">
           ${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:24px;">Sin lecturas guardadas.</td></tr>'}
         </tbody>
       </table>
     </div>
+    <div id="historyStatus" class="history-status"></div>
+    <div id="historySentinel" class="history-sentinel" aria-hidden="true"></div>
 
   </main>
 
@@ -371,7 +553,10 @@ function renderResultadosPage(lecturas, meta) {
   </footer>
   <!-- Chart.js from jsDelivr (allowed by CSP) and the chart init script served from /public -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="/gas-chart.js"></script>
+  <script src="/pwa-client.js"></script>
+  <script src="/history-view.js"></script>
 </body>
 </html>`;
 }
@@ -413,6 +598,7 @@ app.get('/resultados', async (req, res, next) => {
 
 // API routes
 app.use('/api/sensores', sensoresRoutes);
+app.use('/api/alertas', alertasRoutes);
 
 // 404
 app.use((req, res) => {

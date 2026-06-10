@@ -37,7 +37,7 @@ MEDIO_GAS_THRESHOLD = 1100
 # Motion encoding: main.cpp transmits !digitalRead(MOVE_PIN).
 #   movimiento = 0  -> motion detected
 #   movimiento = 1  -> no motion (idle)
-MOTION_DETECTED = 0
+MOTION_DETECTED = 1
 
 RIESGO_TO_INT: dict[str, int] = {"normal": 0, "medio": 1, "alto": 2}
 

@@ -1,0 +1,25 @@
+{
+  "name": "Monitor IoT Incendios",
+  "short_name": "IoT Alertas",
+  "description": "Monitoreo de sensores con alertas en tiempo real.",
+  "start_url": "/resultados",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1a1a2e",
+  "lang": "es-MX",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
