@@ -13,6 +13,7 @@
   var severityFilter = document.getElementById('severityFilter');
   var onlyUnreadAlerts = document.getElementById('onlyUnreadAlerts');
   var lastCriticalAlertId = null;
+  var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
   var LS_NOTIF_MENU_OPEN = 'iot.notifMenuOpen.v1';
 
@@ -276,14 +277,61 @@
       body: JSON.stringify({ subscription: subscription }),
     });
 
-    if (pushBtn) {
-      pushBtn.textContent = 'Notificaciones activadas';
-      pushBtn.disabled = true;
+    await syncPushUiState();
+  }
+
+  async function syncPushUiState() {
+    var supported = ('serviceWorker' in navigator) && ('PushManager' in window);
+    var granted = window.Notification && Notification.permission === 'granted';
+    var hasSubscription = false;
+
+    if (supported && granted) {
+      try {
+        var reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          var sub = await reg.pushManager.getSubscription();
+          hasSubscription = Boolean(sub);
+        }
+      } catch (error) {
+        console.warn('No se pudo consultar subscripcion push:', error.message);
+      }
     }
+
+    pushIsEnabled = Boolean(supported && granted && hasSubscription);
+
+    if (!pushBtn) {
+      return pushIsEnabled;
+    }
+
+    if (!supported) {
+      pushBtn.style.display = 'inline-flex';
+      pushBtn.textContent = 'Notificaciones no disponibles';
+      pushBtn.disabled = true;
+      return false;
+    }
+
+    if (!granted || !hasSubscription) {
+      pushBtn.style.display = 'inline-flex';
+      pushBtn.textContent = 'Activar notificaciones';
+      pushBtn.disabled = false;
+
+      if (notifStatus) {
+        notifStatus.textContent = 'Las notificaciones estan desactivadas en este dispositivo.';
+      }
+
+      return false;
+    }
+
+    // Ya activadas: no mostramos boton principal para que la UI sea limpia.
+    pushBtn.style.display = 'none';
+    pushBtn.disabled = true;
+    pushBtn.textContent = 'Notificaciones activadas';
 
     if (notifStatus) {
       notifStatus.textContent = 'Push activo en este dispositivo';
     }
+
+    return true;
   }
 
   async function checkPushAvailability() {
@@ -291,13 +339,12 @@
       var data = await fetchJson('/api/alertas/public-key');
 
       if (data && data.publicKey) {
-        if (notifStatus) {
-          notifStatus.textContent = 'Push disponible. Activalo en este dispositivo.';
-        }
+        await syncPushUiState();
         return true;
       }
     } catch (error) {
       if (pushBtn) {
+        pushBtn.style.display = 'inline-flex';
         pushBtn.textContent = 'Notificaciones no disponibles';
         pushBtn.disabled = true;
       }
@@ -314,6 +361,12 @@
     if (notifBellBtn && navbarNotifMenu) {
       notifBellBtn.addEventListener('click', function () {
         navbarNotifMenu.classList.toggle('open');
+
+        // Si el usuario abre el panel sin push activo, mostramos CTA para activarlo.
+        if (pushBtn && navbarNotifMenu.classList.contains('open') && !pushIsEnabled) {
+          pushBtn.style.display = 'inline-flex';
+        }
+
         persistNotifMenuState(navbarNotifMenu.classList.contains('open'));
       });
 
@@ -338,14 +391,25 @@
       return;
     }
 
+    // Mantenemos visible el boton de instalacion en movil para que el usuario
+    // tenga una accion clara incluso si beforeinstallprompt no dispara.
+    installBtn.style.display = 'inline-flex';
+    installBtn.disabled = true;
+
     window.addEventListener('beforeinstallprompt', function (event) {
       event.preventDefault();
       installPromptEvent = event;
       installBtn.disabled = false;
     });
 
+    window.addEventListener('appinstalled', function () {
+      installBtn.style.display = 'none';
+      installBtn.disabled = true;
+    });
+
     installBtn.addEventListener('click', async function () {
       if (!installPromptEvent) {
+        alert('Para instalar en movil: abre menu del navegador y elige "Agregar a pantalla de inicio".');
         return;
       }
 
@@ -353,6 +417,7 @@
       await installPromptEvent.userChoice;
       installPromptEvent = null;
       installBtn.disabled = true;
+      installBtn.style.display = 'none';
     });
   }
 
@@ -371,6 +436,7 @@
     }
 
     await checkPushAvailability();
+    await syncPushUiState();
 
     if (pushBtn) {
       pushBtn.addEventListener('click', function () {
