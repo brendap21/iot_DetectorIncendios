@@ -16,10 +16,37 @@
   }
 
   var PAGE_SIZE = 25;
+  var LS_HISTORY_FILTERS = 'iot.historyFilters.v1';
   var loaded = [];
   var nextBefore = null;
   var hasMore = true;
   var loading = false;
+
+  function buildHistoryQueryParams() {
+    var params = ['limit=' + PAGE_SIZE];
+
+    if (nextBefore) {
+      params.push('before=' + encodeURIComponent(nextBefore));
+    }
+
+    if (riskFilter && riskFilter.value !== 'all') {
+      params.push('riesgo=' + encodeURIComponent(riskFilter.value));
+    }
+
+    if (movFilter && movFilter.value !== 'all') {
+      params.push('movimiento=' + encodeURIComponent(movFilter.value));
+    }
+
+    if (flameFilter && flameFilter.value !== 'all') {
+      params.push('llama=' + encodeURIComponent(flameFilter.value));
+    }
+
+    if (anomalyFilter && anomalyFilter.value !== 'all') {
+      params.push('anomalia=' + encodeURIComponent(anomalyFilter.value));
+    }
+
+    return params.join('&');
+  }
 
   function setStatus(message) {
     if (statusEl) {
@@ -70,41 +97,18 @@
     var tendencia = item.prediccion_gas || '-';
 
     return '<tr>' +
-      '<td>' + formatDate(item.fecha) + '</td>' +
-      '<td class="' + (item.llama === 1 ? 'val-alerta' : '') + '">' + llamaTxt + '</td>' +
-      '<td>' + (item.gas ?? '-') + '</td>' +
-      '<td>' + movTxt + '</td>' +
-      '<td>' + riesgoTag(item.riesgo || 'normal') + '</td>' +
-      '<td class="' + (item.anomalia === true ? 'val-alerta' : '') + '">' + anomaliaTxt + '</td>' +
-      '<td>' + tendencia + '</td>' +
+      '<td data-label="Fecha">' + formatDate(item.fecha) + '</td>' +
+      '<td data-label="Llama" class="' + (item.llama === 1 ? 'val-alerta' : '') + '">' + llamaTxt + '</td>' +
+      '<td data-label="Gas (ADC)">' + (item.gas ?? '-') + '</td>' +
+      '<td data-label="Movimiento">' + movTxt + '</td>' +
+      '<td data-label="Nivel de riesgo">' + riesgoTag(item.riesgo || 'normal') + '</td>' +
+      '<td data-label="Anomalia" class="' + (item.anomalia === true ? 'val-alerta' : '') + '">' + anomaliaTxt + '</td>' +
+      '<td data-label="Tendencia gas">' + tendencia + '</td>' +
     '</tr>';
   }
 
-  function passesFilters(item) {
-    if (riskFilter && riskFilter.value !== 'all' && (item.riesgo || 'normal') !== riskFilter.value) {
-      return false;
-    }
-
-    if (movFilter && movFilter.value !== 'all' && String(item.movimiento) !== movFilter.value) {
-      return false;
-    }
-
-    if (flameFilter && flameFilter.value !== 'all' && String(item.llama) !== flameFilter.value) {
-      return false;
-    }
-
-    if (anomalyFilter && anomalyFilter.value !== 'all') {
-      var val = anomalyFilter.value === 'true';
-      if (Boolean(item.anomalia) !== val) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   function renderHistory() {
-    var filtered = loaded.filter(passesFilters);
+    var filtered = loaded;
 
     if (filtered.length === 0) {
       tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:24px;">No hay lecturas para el filtro actual.</td></tr>';
@@ -117,6 +121,35 @@
     setStatus(base + tail);
   }
 
+  function saveHistoryFilterState() {
+    try {
+      var state = {
+        risk: riskFilter ? riskFilter.value : 'all',
+        mov: movFilter ? movFilter.value : 'all',
+        flame: flameFilter ? flameFilter.value : 'all',
+        anomaly: anomalyFilter ? anomalyFilter.value : 'all',
+      };
+      localStorage.setItem(LS_HISTORY_FILTERS, JSON.stringify(state));
+    } catch (error) {
+      console.warn('No se pudo guardar filtros de historial:', error.message);
+    }
+  }
+
+  function restoreHistoryFilterState() {
+    try {
+      var raw = localStorage.getItem(LS_HISTORY_FILTERS);
+      if (!raw) return;
+
+      var state = JSON.parse(raw);
+      if (riskFilter && state && typeof state.risk === 'string') riskFilter.value = state.risk;
+      if (movFilter && state && typeof state.mov === 'string') movFilter.value = state.mov;
+      if (flameFilter && state && typeof state.flame === 'string') flameFilter.value = state.flame;
+      if (anomalyFilter && state && typeof state.anomaly === 'string') anomalyFilter.value = state.anomaly;
+    } catch (error) {
+      console.warn('No se pudo restaurar filtros de historial:', error.message);
+    }
+  }
+
   async function loadNextPage() {
     if (loading || !hasMore) {
       return;
@@ -126,10 +159,7 @@
     setStatus('Cargando historial...');
 
     try {
-      var url = '/api/sensores/ultimas?limit=' + PAGE_SIZE;
-      if (nextBefore) {
-        url += '&before=' + encodeURIComponent(nextBefore);
-      }
+      var url = '/api/sensores/ultimas?' + buildHistoryQueryParams();
 
       var data = await fetchJson(url);
       var lecturas = Array.isArray(data.lecturas) ? data.lecturas : [];
@@ -155,6 +185,19 @@
       var url = '/api/sensores/ultimas?limit=100';
       if (cursor) {
         url += '&before=' + encodeURIComponent(cursor);
+      }
+
+      if (riskFilter && riskFilter.value !== 'all') {
+        url += '&riesgo=' + encodeURIComponent(riskFilter.value);
+      }
+      if (movFilter && movFilter.value !== 'all') {
+        url += '&movimiento=' + encodeURIComponent(movFilter.value);
+      }
+      if (flameFilter && flameFilter.value !== 'all') {
+        url += '&llama=' + encodeURIComponent(flameFilter.value);
+      }
+      if (anomalyFilter && anomalyFilter.value !== 'all') {
+        url += '&anomalia=' + encodeURIComponent(anomalyFilter.value);
       }
 
       var data = await fetchJson(url);
@@ -256,11 +299,21 @@
     observer.observe(sentinel);
   }
 
+  function resetAndReloadHistory() {
+    loaded = [];
+    nextBefore = null;
+    hasMore = true;
+    loading = false;
+    renderHistory();
+    loadNextPage().catch(function () { return null; });
+  }
+
   function setupFilters() {
     [riskFilter, movFilter, flameFilter, anomalyFilter].forEach(function (el) {
       if (!el) return;
       el.addEventListener('change', function () {
-        renderHistory();
+        saveHistoryFilterState();
+        resetAndReloadHistory();
       });
     });
 
@@ -274,6 +327,7 @@
   }
 
   async function init() {
+    restoreHistoryFilterState();
     setupFilters();
     setupObserver();
     await loadNextPage();

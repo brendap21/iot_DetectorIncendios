@@ -154,13 +154,13 @@ function renderResultadosPage(lecturas, meta) {
 
     return `
     <tr>
-      <td>${fecha}</td>
-      <td class="${lectura.llama === 1 ? 'val-alerta' : ''}">${lectura.llama === 1 ? 'Si' : 'No'}</td>
-      <td>${lectura.gas ?? '-'}</td>
-      <td>${movDetectado}</td>
-      <td><span class="tag ${cls}">${texto}</span></td>
-      <td class="${lectura.anomalia === true ? 'val-alerta' : ''}">${anomalia}</td>
-      <td>${tendencia}</td>
+      <td data-label="Fecha">${fecha}</td>
+      <td data-label="Llama" class="${lectura.llama === 1 ? 'val-alerta' : ''}">${lectura.llama === 1 ? 'Si' : 'No'}</td>
+      <td data-label="Gas (ADC)">${lectura.gas ?? '-'}</td>
+      <td data-label="Movimiento">${movDetectado}</td>
+      <td data-label="Nivel de riesgo"><span class="tag ${cls}">${texto}</span></td>
+      <td data-label="Anomalia" class="${lectura.anomalia === true ? 'val-alerta' : ''}">${anomalia}</td>
+      <td data-label="Tendencia gas">${tendencia}</td>
     </tr>`;
   }).join('');
 
@@ -169,7 +169,6 @@ function renderResultadosPage(lecturas, meta) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="10" />
   <meta name="theme-color" content="#1a1a2e" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <title>Monitor IoT - Detector de Incendios</title>
@@ -281,6 +280,46 @@ function renderResultadosPage(lecturas, meta) {
 
     /* ---- layout ---- */
     main { max-width: 1120px; margin: 0 auto; padding: 24px 18px 52px; }
+
+    .section-nav {
+      position: sticky;
+      top: 72px;
+      z-index: 15;
+      margin: 14px auto 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid #d7deef;
+      border-radius: 999px;
+      padding: 8px;
+      box-shadow: var(--shadow);
+      width: fit-content;
+      max-width: 100%;
+    }
+    .section-link {
+      text-decoration: none;
+      color: #2b3a62;
+      border: 1px solid #d6def1;
+      background: #f4f7ff;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .section-link:hover {
+      background: #e9f0ff;
+    }
+    .section {
+      scroll-margin-top: 136px;
+    }
+    .section-hint {
+      font-size: 12px;
+      color: #667;
+      margin: -6px 0 10px;
+    }
 
     /* ---- section titles ---- */
     h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
@@ -530,9 +569,143 @@ function renderResultadosPage(lecturas, meta) {
     }
 
     @media (max-width: 740px) {
-      .history-tools .wide { grid-column: span 1; }
-      .header-right { width: 100%; }
-      .notif-menu { right: auto; left: 0; }
+      body {
+        font-size: 15px;
+      }
+
+      header {
+        padding: 12px;
+        gap: 10px;
+      }
+      header h1 {
+        font-size: 17px;
+      }
+      header span {
+        font-size: 11px;
+      }
+
+      .header-left,
+      .header-right {
+        width: 100%;
+      }
+      .header-right {
+        justify-content: space-between;
+      }
+
+      .btn,
+      .filter,
+      .filter-check {
+        min-height: 42px;
+      }
+
+      .btn-notif {
+        flex: 1;
+        justify-content: center;
+      }
+
+      main {
+        padding: 14px 10px 36px;
+      }
+
+      .section-nav {
+        top: 110px;
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        border-radius: 12px;
+        scrollbar-width: thin;
+      }
+      .section-link {
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+      .card {
+        padding: 14px;
+      }
+      .card .c-value {
+        font-size: 24px;
+      }
+
+      .actions,
+      .actions-row,
+      .filters-row,
+      .history-tools {
+        width: 100%;
+      }
+      .actions-row,
+      .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .actions-row .btn,
+      .filters-row .filter,
+      .history-tools .btn,
+      .history-tools select {
+        width: 100%;
+      }
+
+      .history-tools {
+        grid-template-columns: 1fr;
+      }
+      .history-tools .wide {
+        grid-column: span 1;
+      }
+
+      .notif-menu {
+        right: auto;
+        left: 0;
+        width: min(94vw, 430px);
+        max-height: 60vh;
+      }
+
+      .table-wrap {
+        overflow: visible;
+      }
+      table {
+        min-width: 0;
+      }
+      thead {
+        display: none;
+      }
+      tbody,
+      tr,
+      td {
+        display: block;
+        width: 100%;
+      }
+      tr {
+        border: 1px solid #d9e1f1;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(20, 35, 70, 0.06);
+        margin-bottom: 10px;
+        padding: 8px 10px;
+      }
+      td {
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        font-size: 13px;
+      }
+      td::before {
+        content: attr(data-label);
+        color: #55607f;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      td .tag {
+        margin-left: auto;
+      }
     }
 
     /* ---- footer ---- */
@@ -572,8 +745,16 @@ function renderResultadosPage(lecturas, meta) {
   </header>
 
   <main>
+    <nav class="section-nav" aria-label="Navegacion de secciones">
+      <a class="section-link" href="#sec-resumen">Resumen</a>
+      <a class="section-link" href="#sec-alertas">Alertas</a>
+      <a class="section-link" href="#sec-grafica">Grafica</a>
+      <a class="section-link" href="#sec-historial">Historial</a>
+    </nav>
 
+    <section id="sec-resumen" class="section">
     <h2>Ultima lectura</h2>
+    <p class="section-hint">Vista rapida del estado actual de sensores.</p>
     <div class="cards">
       <div class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
         <div class="c-label">Llama</div>
@@ -598,6 +779,7 @@ function renderResultadosPage(lecturas, meta) {
     </div>
 
     <h2>Analisis ML</h2>
+    <p class="section-hint">Interpretacion automatica y acciones de monitoreo.</p>
     ${interpretarEstado(ultima)}
     <div class="actions">
       <div class="actions-row">
@@ -616,15 +798,21 @@ function renderResultadosPage(lecturas, meta) {
         </label>
       </div>
     </div>
+    </section>
 
+    <section id="sec-alertas" class="section">
     <h2>Alertas recientes</h2>
+    <p class="section-hint">Lista de eventos recientes. Puedes marcarlos como leidos.</p>
     <div class="alerts-panel">
       <ul id="alertsList">
         <li><strong>Sin alertas nuevas</strong><div class="meta">Activa notificaciones para recibir eventos en tu celular.</div></li>
       </ul>
     </div>
+    </section>
 
+    <section id="sec-grafica" class="section">
     <h2>Gas en el tiempo</h2>
+    <p class="section-hint">Evolucion de gas en las ultimas lecturas.</p>
     <div class="chart-wrap">
       <canvas id="gasChart"
         data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
@@ -632,8 +820,11 @@ function renderResultadosPage(lecturas, meta) {
         data-riesgo='${JSON.stringify(lecturas.slice().reverse().map(l => l.riesgo ?? "normal"))}'
       ></canvas>
     </div>
+    </section>
 
+    <section id="sec-historial" class="section">
     <h2>Historial</h2>
+    <p class="section-hint">Filtra, revisa y exporta todas las lecturas.</p>
     <div class="history-tools">
       <select id="historyRiskFilter" class="filter" aria-label="Filtrar riesgo en historial">
         <option value="all">Riesgo: todos</option>
@@ -678,6 +869,7 @@ function renderResultadosPage(lecturas, meta) {
     </div>
     <div id="historyStatus" class="history-status"></div>
     <div id="historySentinel" class="history-sentinel" aria-hidden="true"></div>
+    </section>
 
   </main>
 

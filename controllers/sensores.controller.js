@@ -17,6 +17,38 @@ const { sendAlertToAll } = require('../services/push.service');
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
 
+function parseBinaryFilter(value) {
+  if (value === '0' || value === 0) return 0;
+  if (value === '1' || value === 1) return 1;
+  return null;
+}
+
+function parseBooleanFilter(value) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return null;
+}
+
+function matchesReadingFilters(reading, filters) {
+  if (filters.riesgo && (reading.riesgo || 'normal') !== filters.riesgo) {
+    return false;
+  }
+
+  if (filters.movimiento !== null && Number(reading.movimiento) !== filters.movimiento) {
+    return false;
+  }
+
+  if (filters.llama !== null && Number(reading.llama) !== filters.llama) {
+    return false;
+  }
+
+  if (filters.anomalia !== null && Boolean(reading.anomalia) !== filters.anomalia) {
+    return false;
+  }
+
+  return true;
+}
+
 const guardarLectura = async (req, res) => {
   if (!isFirebaseConfigured || !db) {
     logger.warn('Request received but Firebase is not configured', { path: req.path });
@@ -139,44 +171,89 @@ const obtenerLecturasRecientes = async (req, res) => {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
     const beforeRaw = typeof req.query.before === 'string' ? req.query.before.trim() : '';
     const beforeDate = beforeRaw ? new Date(beforeRaw) : null;
+    const riesgoRaw = typeof req.query.riesgo === 'string' ? req.query.riesgo.trim().toLowerCase() : '';
+
+    const filters = {
+      riesgo: ['normal', 'medio', 'alto'].includes(riesgoRaw) ? riesgoRaw : null,
+      movimiento: parseBinaryFilter(req.query.movimiento),
+      llama: parseBinaryFilter(req.query.llama),
+      anomalia: parseBooleanFilter(req.query.anomalia),
+    };
 
     if (beforeRaw && Number.isNaN(beforeDate.getTime())) {
       return res.status(400).json({ ok: false, error: 'Parametro before invalido. Usa fecha ISO 8601.' });
     }
 
-    let query = db.collection('lecturas')
-      .orderBy('fecha', 'desc');
+    const READ_BATCH_SIZE = 120;
+    let cursorDate = beforeDate || null;
+    let hasMore = true;
+    let nextBefore = null;
+    const lecturas = [];
 
-    if (beforeDate) {
-      query = query.where('fecha', '<', beforeDate);
+    while (lecturas.length < limit && hasMore) {
+      let query = db.collection('lecturas').orderBy('fecha', 'desc');
+      if (cursorDate) {
+        query = query.where('fecha', '<', cursorDate);
+      }
+
+      const snapshot = await query.limit(READ_BATCH_SIZE).get();
+      if (snapshot.empty) {
+        hasMore = false;
+        break;
+      }
+
+      for (const doc of snapshot.docs) {
+        const data = doc.data() || {};
+        const fecha = data.fecha && typeof data.fecha.toDate === 'function'
+          ? data.fecha.toDate().toISOString()
+          : (data.fecha ? new Date(data.fecha).toISOString() : null);
+
+        const reading = {
+          id: doc.id,
+          llama: data.llama,
+          gas: data.gas,
+          movimiento: data.movimiento,
+          fecha,
+          riesgo: data.riesgo,
+          anomalia: data.anomalia,
+          prediccion_gas: data.prediccion_gas,
+        };
+
+        if (matchesReadingFilters(reading, filters)) {
+          lecturas.push(reading);
+          if (lecturas.length === limit) {
+            nextBefore = fecha;
+            break;
+          }
+        }
+      }
+
+      const lastData = snapshot.docs[snapshot.docs.length - 1].data() || {};
+      if (!nextBefore) {
+        const lastDate = lastData.fecha && typeof lastData.fecha.toDate === 'function'
+          ? lastData.fecha.toDate()
+          : (lastData.fecha ? new Date(lastData.fecha) : null);
+
+        if (lastDate && !Number.isNaN(lastDate.getTime())) {
+          cursorDate = lastDate;
+          nextBefore = lastDate.toISOString();
+        } else {
+          hasMore = false;
+          nextBefore = null;
+        }
+      }
+
+      if (snapshot.size < READ_BATCH_SIZE) {
+        hasMore = false;
+      }
+
+      if (lecturas.length === limit) {
+        break;
+      }
     }
 
-    const snapshot = await query
-      .limit(limit)
-      .get();
-
-    const lecturas = snapshot.docs.map((doc) => {
-      const data = doc.data() || {};
-      const fecha = data.fecha && typeof data.fecha.toDate === 'function'
-        ? data.fecha.toDate().toISOString()
-        : (data.fecha ? new Date(data.fecha).toISOString() : null);
-
-      return {
-        id: doc.id,
-        llama: data.llama,
-        gas: data.gas,
-        movimiento: data.movimiento,
-        fecha,
-        riesgo: data.riesgo,
-        anomalia: data.anomalia,
-        prediccion_gas: data.prediccion_gas,
-      };
-    });
-
-    let nextBefore = null;
-    if (lecturas.length > 0) {
-      const ultima = lecturas[lecturas.length - 1];
-      nextBefore = ultima && ultima.fecha ? ultima.fecha : null;
+    if (!hasMore) {
+      nextBefore = null;
     }
 
     return res.status(200).json({
@@ -187,7 +264,7 @@ const obtenerLecturasRecientes = async (req, res) => {
         limit,
         before: beforeRaw || null,
         nextBefore,
-        hasMore: lecturas.length === limit,
+        hasMore: Boolean(nextBefore),
       },
     });
   } catch (error) {

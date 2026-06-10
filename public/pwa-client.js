@@ -13,6 +13,8 @@
   var severityFilter = document.getElementById('severityFilter');
   var onlyUnreadAlerts = document.getElementById('onlyUnreadAlerts');
   var lastCriticalAlertId = null;
+  var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
+  var LS_NOTIF_MENU_OPEN = 'iot.notifMenuOpen.v1';
 
   function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -167,6 +169,55 @@
     setNotifBadge(items);
   }
 
+  function saveAlertFilterState() {
+    try {
+      var state = {
+        severity: severityFilter ? severityFilter.value : 'all',
+        unreadOnly: Boolean(onlyUnreadAlerts && onlyUnreadAlerts.checked),
+      };
+      localStorage.setItem(LS_ALERT_FILTERS, JSON.stringify(state));
+    } catch (error) {
+      console.warn('No se pudo guardar estado de filtros:', error.message);
+    }
+  }
+
+  function restoreAlertFilterState() {
+    try {
+      var raw = localStorage.getItem(LS_ALERT_FILTERS);
+      if (!raw) return;
+
+      var state = JSON.parse(raw);
+      if (severityFilter && state && typeof state.severity === 'string') {
+        severityFilter.value = state.severity;
+      }
+      if (onlyUnreadAlerts && state && typeof state.unreadOnly === 'boolean') {
+        onlyUnreadAlerts.checked = state.unreadOnly;
+      }
+    } catch (error) {
+      console.warn('No se pudo restaurar estado de filtros:', error.message);
+    }
+  }
+
+  function persistNotifMenuState(isOpen) {
+    try {
+      localStorage.setItem(LS_NOTIF_MENU_OPEN, isOpen ? '1' : '0');
+    } catch (error) {
+      console.warn('No se pudo guardar estado del panel:', error.message);
+    }
+  }
+
+  function restoreNotifMenuState() {
+    try {
+      if (!navbarNotifMenu) return;
+      var val = localStorage.getItem(LS_NOTIF_MENU_OPEN);
+      if (val === '1') {
+        navbarNotifMenu.classList.add('open');
+      }
+    } catch (error) {
+      console.warn('No se pudo restaurar panel:', error.message);
+    }
+  }
+
   async function refreshAlerts() {
     try {
       var data = await fetchJson(buildAlertsQuery());
@@ -263,6 +314,7 @@
     if (notifBellBtn && navbarNotifMenu) {
       notifBellBtn.addEventListener('click', function () {
         navbarNotifMenu.classList.toggle('open');
+        persistNotifMenuState(navbarNotifMenu.classList.contains('open'));
       });
 
       document.addEventListener('click', function (event) {
@@ -275,6 +327,7 @@
 
         if (!clickedBell && !clickedMenu) {
           navbarNotifMenu.classList.remove('open');
+          persistNotifMenuState(false);
         }
       });
     }
@@ -306,6 +359,8 @@
   async function init() {
     setupInstallPrompt();
     setupNavbarNotifications();
+    restoreAlertFilterState();
+    restoreNotifMenuState();
 
     if ('serviceWorker' in navigator) {
       try {
@@ -327,12 +382,14 @@
 
     if (severityFilter) {
       severityFilter.addEventListener('change', function () {
+        saveAlertFilterState();
         refreshAlerts().catch(function () { return null; });
       });
     }
 
     if (onlyUnreadAlerts) {
       onlyUnreadAlerts.addEventListener('change', function () {
+        saveAlertFilterState();
         refreshAlerts().catch(function () { return null; });
       });
     }
