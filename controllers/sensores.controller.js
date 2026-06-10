@@ -55,14 +55,6 @@ function isQuotaError(error) {
   return msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
 }
 
-function alertaPrioridad(alerta) {
-  if (!alerta || !alerta.severidad) return 0;
-  if (alerta.severidad === 'critical') return 3;
-  if (alerta.severidad === 'high') return 2;
-  if (alerta.severidad === 'medium') return 1;
-  return 0;
-}
-
 const guardarLectura = async (req, res) => {
   if (!isFirebaseConfigured || !db) {
     logger.warn('Request received but Firebase is not configured', { path: req.path });
@@ -113,10 +105,7 @@ const guardarLectura = async (req, res) => {
     const alertasAEnviar = filtrarAlertasPorCooldown(alertasGeneradas);
 
     if (alertasAEnviar.length > 0) {
-      const alertasOrdenadas = alertasAEnviar.slice().sort((a, b) => alertaPrioridad(b) - alertaPrioridad(a));
-
-      // Disparar en paralelo reduce latencia total y evita que una alerta bloquee a otra.
-      const dispatchTasks = alertasOrdenadas.map(async (alerta) => {
+      for (const alerta of alertasAEnviar) {
         const alertaDoc = {
           ...alerta,
           lecturaId: doc.id,
@@ -124,16 +113,17 @@ const guardarLectura = async (req, res) => {
           fecha: new Date(),
         };
 
+        await db.collection('alertas').add(alertaDoc);
         runtimeStore.saveAlerta(alertaDoc);
 
-        const pushPayload = {
+        await sendAlertToAll({
           title: alerta.titulo,
           body: alerta.mensaje,
           tag: alerta.tipo,
           severity: alerta.severidad,
           renotify: alerta.severidad === 'critical',
           requireInteraction: alerta.severidad === 'critical',
-          vibrate: alerta.severidad === 'critical' ? [450, 180, 450, 180, 900] : [120],
+          vibrate: alerta.severidad === 'critical' ? [300, 150, 300, 150, 600] : [100],
           soundHint: alerta.severidad === 'critical' ? 'critical' : 'default',
           data: {
             lecturaId: doc.id,
@@ -143,36 +133,8 @@ const guardarLectura = async (req, res) => {
             movimiento,
           },
           url: '/resultados',
-        };
-
-        const pushOptions = alerta.severidad === 'critical'
-          ? { urgency: 'high', ttl: 15, topic: 'critical-fire-alert' }
-          : { urgency: 'normal', ttl: 60, topic: alerta.tipo || 'iot-alert' };
-
-        const [dbResult, pushResult] = await Promise.allSettled([
-          db.collection('alertas').add(alertaDoc),
-          sendAlertToAll(pushPayload, pushOptions),
-        ]);
-
-        if (dbResult.status === 'rejected') {
-          logger.warn('No se pudo persistir alerta en Firestore', {
-            tipo: alerta.tipo,
-            error: dbResult.reason && dbResult.reason.message ? dbResult.reason.message : String(dbResult.reason),
-          });
-        }
-
-        if (pushResult.status === 'rejected') {
-          logger.warn('Error enviando push', {
-            tipo: alerta.tipo,
-            error: pushResult.reason && pushResult.reason.message ? pushResult.reason.message : String(pushResult.reason),
-          });
-        }
-      });
-
-      // No bloqueamos respuesta HTTP por tareas de notificacion/persistencia.
-      Promise.allSettled(dispatchTasks).catch((dispatchError) => {
-        logger.warn('Error en tareas async de alertas', dispatchError && dispatchError.message ? dispatchError.message : String(dispatchError));
-      });
+        });
+      }
     }
 
     // Log a high-visibility warning when risk is elevated so it stands out in

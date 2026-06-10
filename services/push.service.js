@@ -70,7 +70,7 @@ async function listSubscriptions() {
     .filter((s) => s && s.endpoint && s.keys && s.keys.p256dh && s.keys.auth);
 }
 
-async function sendAlertToAll(payload, options = {}) {
+async function sendAlertToAll(payload) {
   if (!hasVapidKeys) {
     return { sent: 0, failed: 0, skipped: true };
   }
@@ -83,21 +83,9 @@ async function sendAlertToAll(payload, options = {}) {
   let sent = 0;
   let failed = 0;
 
-  const urgency = ['very-low', 'low', 'normal', 'high'].includes(options.urgency)
-    ? options.urgency
-    : 'normal';
-  const ttl = Number.isFinite(options.ttl) ? Math.max(0, Math.floor(options.ttl)) : 60;
-  const topic = typeof options.topic === 'string' && options.topic.trim() ? options.topic.trim() : undefined;
-
-  const pushOptions = {
-    TTL: ttl,
-    urgency,
-    topic,
-  };
-
   for (const subscription of subscriptions) {
     try {
-      await webpush.sendNotification(subscription, JSON.stringify(payload), pushOptions);
+      await webpush.sendNotification(subscription, JSON.stringify(payload));
       sent += 1;
     } catch (err) {
       failed += 1;
