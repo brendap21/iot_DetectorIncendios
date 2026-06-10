@@ -82,10 +82,16 @@ async function sendAlertToAll(payload) {
 
   let sent = 0;
   let failed = 0;
+  const isCritical = payload && payload.severity === 'critical';
+  const pushOptions = {
+    TTL: isCritical ? 30 : 90,
+    urgency: isCritical ? 'high' : 'normal',
+    topic: payload && payload.tag ? String(payload.tag) : 'iot-alert',
+  };
 
-  for (const subscription of subscriptions) {
+  await Promise.all(subscriptions.map(async (subscription) => {
     try {
-      await webpush.sendNotification(subscription, JSON.stringify(payload));
+      await webpush.sendNotification(subscription, JSON.stringify(payload), pushOptions);
       sent += 1;
     } catch (err) {
       failed += 1;
@@ -101,7 +107,7 @@ async function sendAlertToAll(payload) {
         await removeSubscription(subscription.endpoint);
       }
     }
-  }
+  }));
 
   return { sent, failed, skipped: false };
 }

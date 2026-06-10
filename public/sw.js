@@ -6,6 +6,12 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(self.clients.claim());
 });
 
+function delay(ms) {
+  return new Promise(function (resolve) {
+    setTimeout(resolve, ms);
+  });
+}
+
 self.addEventListener('push', function (event) {
   if (!event.data) {
     return;
@@ -50,6 +56,20 @@ self.addEventListener('push', function (event) {
       var clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       clientsList.forEach(function (client) {
         client.postMessage({ type: 'critical-alert' });
+      });
+
+      // Segundo pulso para incrementar visibilidad cuando la primera alerta
+      // se pierde entre notificaciones del sistema.
+      await delay(2500);
+      await self.registration.showNotification('ALERTA URGENTE', {
+        body: data.body || 'Posible incendio detectado. Revisa el monitoreo ahora.',
+        icon: '/icons/icon-192.svg',
+        badge: '/icons/icon-192.svg',
+        tag: 'critical-fire-alert-repeat',
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [500, 200, 500, 200, 900],
+        data: options.data,
       });
     }
   }()));

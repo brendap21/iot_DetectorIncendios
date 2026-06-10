@@ -5,8 +5,8 @@ const GAS_SPIKE_DELTA = 350;
 const ultimaAlertaPorTipo = new Map();
 
 const COOLDOWN_MS = {
-  llama_detectada: 10000,
-  riesgo_alto: 60000,
+  llama_detectada: 3000,
+  riesgo_alto: 15000,
   gas_extremo: 45000,
   cambio_extremo_gas: 45000,
   movimiento_detectado: 30000,
