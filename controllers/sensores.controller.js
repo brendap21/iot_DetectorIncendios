@@ -203,19 +203,19 @@ const obtenerLecturasRecientes = async (req, res) => {
     return res.status(503).json({ ok: false, error: 'Firebase no está configurado en este entorno' });
   }
 
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+  const beforeRaw = typeof req.query.before === 'string' ? req.query.before.trim() : '';
+  const beforeDate = beforeRaw ? new Date(beforeRaw) : null;
+  const riesgoRaw = typeof req.query.riesgo === 'string' ? req.query.riesgo.trim().toLowerCase() : '';
+
+  const filters = {
+    riesgo: ['normal', 'medio', 'alto'].includes(riesgoRaw) ? riesgoRaw : null,
+    movimiento: parseBinaryFilter(req.query.movimiento),
+    llama: parseBinaryFilter(req.query.llama),
+    anomalia: parseBooleanFilter(req.query.anomalia),
+  };
+
   try {
-    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
-    const beforeRaw = typeof req.query.before === 'string' ? req.query.before.trim() : '';
-    const beforeDate = beforeRaw ? new Date(beforeRaw) : null;
-    const riesgoRaw = typeof req.query.riesgo === 'string' ? req.query.riesgo.trim().toLowerCase() : '';
-
-    const filters = {
-      riesgo: ['normal', 'medio', 'alto'].includes(riesgoRaw) ? riesgoRaw : null,
-      movimiento: parseBinaryFilter(req.query.movimiento),
-      llama: parseBinaryFilter(req.query.llama),
-      anomalia: parseBooleanFilter(req.query.anomalia),
-    };
-
     if (beforeRaw && Number.isNaN(beforeDate.getTime())) {
       return res.status(400).json({ ok: false, error: 'Parametro before invalido. Usa fecha ISO 8601.' });
     }

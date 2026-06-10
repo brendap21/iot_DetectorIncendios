@@ -72,13 +72,13 @@ const obtenerAlertasRecientes = async (req, res) => {
     return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
   }
 
-  try {
-    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
-    const severidades = typeof req.query.severidad === 'string' && req.query.severidad.trim()
-      ? req.query.severidad.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
-      : [];
-    const leidaFiltro = parseBooleanQuery(req.query.leida);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+  const severidades = typeof req.query.severidad === 'string' && req.query.severidad.trim()
+    ? req.query.severidad.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+    : [];
+  const leidaFiltro = parseBooleanQuery(req.query.leida);
 
+  try {
     const snapshot = await db.collection('alertas')
       .orderBy('fecha', 'desc')
       .limit(limit)
