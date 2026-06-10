@@ -13,6 +13,7 @@ const logger = require('../logger');
 const { clasificarRiesgo, detectarAnomalia, predecirTendencia } = require('../services/ml.service');
 const { evaluarAlertas, filtrarAlertasPorCooldown } = require('../services/alert.service');
 const { sendAlertToAll } = require('../services/push.service');
+const runtimeStore = require('../services/runtime-store.service');
 
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
@@ -47,6 +48,11 @@ function matchesReadingFilters(reading, filters) {
   }
 
   return true;
+}
+
+function isQuotaError(error) {
+  const msg = error && error.message ? String(error.message) : '';
+  return msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
 }
 
 const guardarLectura = async (req, res) => {
@@ -91,6 +97,7 @@ const guardarLectura = async (req, res) => {
     };
 
     const doc = await db.collection('lecturas').add(lectura);
+    runtimeStore.saveLectura({ ...lectura, id: doc.id });
 
     logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
@@ -107,6 +114,7 @@ const guardarLectura = async (req, res) => {
         };
 
         await db.collection('alertas').add(alertaDoc);
+        runtimeStore.saveAlerta(alertaDoc);
 
         await sendAlertToAll({
           title: alerta.titulo,
@@ -153,6 +161,34 @@ const guardarLectura = async (req, res) => {
     res.status(201).json({ ok: true, id: doc.id, data: lectura });
   } catch (error) {
     logger.error('Error guardando lectura', error && error.stack ? error.stack : error);
+
+    // Degrade gracefully when Firestore quota is exhausted.
+    if (isQuotaError(error)) {
+      try {
+        const lecturaMem = {
+          id: `mem-${Date.now()}`,
+          llama: req.body && req.body.llama,
+          gas: req.body && req.body.gas,
+          movimiento: req.body && req.body.movimiento,
+          fecha: new Date(),
+          riesgo: 'normal',
+          anomalia: false,
+          prediccion_gas: 'estable',
+        };
+
+        runtimeStore.saveLectura(lecturaMem);
+        return res.status(201).json({
+          ok: true,
+          degraded: true,
+          warning: 'Firestore quota exceeded. Lectura guardada en cache temporal.',
+          id: lecturaMem.id,
+          data: lecturaMem,
+        });
+      } catch (fallbackErr) {
+        logger.error('Error in degraded write fallback', fallbackErr && fallbackErr.stack ? fallbackErr.stack : fallbackErr);
+      }
+    }
+
     res.status(500).json({
       ok: false,
       error: error && error.message ? error.message : 'Error en controlador',
@@ -269,6 +305,24 @@ const obtenerLecturasRecientes = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error obteniendo lecturas recientes', error && error.stack ? error.stack : error);
+
+    if (isQuotaError(error)) {
+      const fallback = runtimeStore.listLecturas({
+        limit,
+        before: beforeRaw || null,
+        filters,
+      });
+
+      return res.status(200).json({
+        ok: true,
+        degraded: true,
+        warning: 'Firestore quota exceeded. Respuesta servida desde cache temporal.',
+        count: fallback.lecturas.length,
+        lecturas: fallback.lecturas,
+        page: fallback.page,
+      });
+    }
+
     return res.status(500).json({
       ok: false,
       error: error && error.message ? error.message : 'Error obteniendo lecturas',

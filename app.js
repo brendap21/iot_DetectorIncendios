@@ -8,6 +8,7 @@ const sensoresRoutes = require('./routes/sensores.routes');
 const alertasRoutes = require('./routes/alertas.routes');
 const logger = require('./logger');
 const { db, isFirebaseConfigured, firebaseInitError } = require('./firebase');
+const runtimeStore = require('./services/runtime-store.service');
 
 const app = express();
 
@@ -918,6 +919,27 @@ app.get('/resultados', async (req, res, next) => {
 
     res.status(200).send(renderResultadosPage(lecturas, { count: lecturas.length }));
   } catch (err) {
+    const msg = err && err.message ? String(err.message) : '';
+    const quotaExceeded = msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
+
+    if (quotaExceeded) {
+      logger.warn('Firestore quota exceeded on /resultados. Serving runtime cache fallback.');
+      const fallback = runtimeStore.listLecturas({
+        limit: 20,
+        before: null,
+        filters: {
+          riesgo: null,
+          movimiento: null,
+          llama: null,
+          anomalia: null,
+        },
+      });
+
+      return res.status(200).send(renderResultadosPage(fallback.lecturas, {
+        count: fallback.lecturas.length,
+      }));
+    }
+
     next(err);
   }
 });

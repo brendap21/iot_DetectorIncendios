@@ -8,12 +8,18 @@ const {
   saveSubscription,
   removeSubscription,
 } = require('../services/push.service');
+const runtimeStore = require('../services/runtime-store.service');
 
 function parseBooleanQuery(value) {
   if (value === undefined) return null;
   if (value === 'true') return true;
   if (value === 'false') return false;
   return null;
+}
+
+function isQuotaError(error) {
+  const msg = error && error.message ? String(error.message) : '';
+  return msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
 }
 
 const suscribirNotificaciones = async (req, res) => {
@@ -105,6 +111,23 @@ const obtenerAlertasRecientes = async (req, res) => {
     return res.status(200).json({ ok: true, count: alertas.length, alertas });
   } catch (error) {
     logger.error('Error leyendo alertas recientes', error && error.stack ? error.stack : error);
+
+    if (isQuotaError(error)) {
+      const alertas = runtimeStore.listAlertas({
+        limit,
+        severidades,
+        leida: leidaFiltro,
+      });
+
+      return res.status(200).json({
+        ok: true,
+        degraded: true,
+        warning: 'Firestore quota exceeded. Alertas servidas desde cache temporal.',
+        count: alertas.length,
+        alertas,
+      });
+    }
+
     return res.status(500).json({ ok: false, error: 'No fue posible cargar alertas' });
   }
 };
@@ -128,9 +151,24 @@ const marcarAlertaLeida = async (req, res) => {
     }
 
     await ref.set({ leida: true, fechaLectura: new Date() }, { merge: true });
+    runtimeStore.markAlertaLeida(id);
     return res.status(200).json({ ok: true, id, leida: true });
   } catch (error) {
     logger.error('Error marcando alerta como leida', error && error.stack ? error.stack : error);
+
+    if (isQuotaError(error)) {
+      const ok = runtimeStore.markAlertaLeida(req.params && req.params.id);
+      if (ok) {
+        return res.status(200).json({
+          ok: true,
+          degraded: true,
+          warning: 'Firestore quota exceeded. Alerta marcada como leida en cache temporal.',
+          id: req.params.id,
+          leida: true,
+        });
+      }
+    }
+
     return res.status(500).json({ ok: false, error: 'No fue posible actualizar la alerta' });
   }
 };
