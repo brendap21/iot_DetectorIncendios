@@ -9,6 +9,7 @@ const alertasRoutes = require('./routes/alertas.routes');
 const logger = require('./logger');
 const { db, isFirebaseConfigured, firebaseInitError } = require('./firebase');
 const runtimeStore = require('./services/runtime-store.service');
+const { obtenerEstadisticasLecturas } = require('./services/data.service');
 
 const app = express();
 
@@ -922,7 +923,9 @@ app.get('/resultados', async (req, res, next) => {
       };
     });
 
-    res.status(200).send(renderResultadosPage(lecturas, { count: lecturas.length }));
+    const estadisticas = await obtenerEstadisticasLecturas({ limit: 20 });
+
+    res.status(200).send(renderResultadosPage(lecturas, { count: lecturas.length }, estadisticas));
   } catch (err) {
     const msg = err && err.message ? String(err.message) : '';
     const quotaExceeded = msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
@@ -940,9 +943,10 @@ app.get('/resultados', async (req, res, next) => {
         },
       });
 
+      const fallbackStats = await obtenerEstadisticasLecturas({ limit: 20 });
       return res.status(200).send(renderResultadosPage(fallback.lecturas, {
         count: fallback.lecturas.length,
-      }));
+      }, fallbackStats));
     }
 
     next(err);
