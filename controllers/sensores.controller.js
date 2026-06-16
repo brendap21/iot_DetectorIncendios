@@ -14,6 +14,7 @@ const { clasificarRiesgo, detectarAnomalia, predecirTendencia } = require('../se
 const { evaluarAlertas, filtrarAlertasPorCooldown } = require('../services/alert.service');
 const { sendAlertToAll } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
+const { obtenerEstadisticasLecturas } = require('../services/data.service');
 
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
@@ -331,4 +332,25 @@ const obtenerLecturasRecientes = async (req, res) => {
   }
 };
 
-module.exports = { guardarLectura, obtenerLecturasRecientes };
+const obtenerEstadisticas = async (req, res) => {
+  if (!isFirebaseConfigured || !db) {
+    logger.warn('Statistics requested but Firebase is not configured', { path: req.path });
+    return res.status(503).json({ ok: false, error: 'Firebase no está configurado en este entorno' });
+  }
+
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 500);
+    const estadisticas = await obtenerEstadisticasLecturas({ limit });
+
+    return res.status(200).json({ ok: true, estadisticas });
+  } catch (error) {
+    logger.error('Error obteniendo estadísticas', error && error.stack ? error.stack : error);
+    return res.status(500).json({
+      ok: false,
+      error: error && error.message ? error.message : 'Error obteniendo estadísticas',
+      source: 'controller:obtenerEstadisticas'
+    });
+  }
+};
+
+module.exports = { guardarLectura, obtenerLecturasRecientes, obtenerEstadisticas };
