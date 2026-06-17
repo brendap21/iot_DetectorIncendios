@@ -12,6 +12,8 @@
   var notifStatus = document.getElementById('notifStatus');
   var severityFilter = document.getElementById('severityFilter');
   var onlyUnreadAlerts = document.getElementById('onlyUnreadAlerts');
+  var mlResultsBtn = document.getElementById('mlResultsBtn');
+  var mlResultsModal = document.getElementById('mlResultsModal');
   var lastCriticalAlertId = null;
   var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
@@ -180,6 +182,44 @@
     } catch (error) {
       console.warn('No se pudo guardar estado de filtros:', error.message);
     }
+  }
+
+  function openMlResultsModal() {
+    if (!mlResultsModal) {
+      return;
+    }
+
+    mlResultsModal.classList.add('open');
+    mlResultsModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMlResultsModal() {
+    if (!mlResultsModal) {
+      return;
+    }
+
+    mlResultsModal.classList.remove('open');
+    mlResultsModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function setupMlResultsModal() {
+    if (!mlResultsBtn || !mlResultsModal) {
+      return;
+    }
+
+    mlResultsBtn.addEventListener('click', openMlResultsModal);
+
+    mlResultsModal.querySelectorAll('[data-ml-close]').forEach(function (element) {
+      element.addEventListener('click', closeMlResultsModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && mlResultsModal.classList.contains('open')) {
+        closeMlResultsModal();
+      }
+    });
   }
 
   function restoreAlertFilterState() {
@@ -475,6 +515,7 @@
   async function init() {
     setupInstallPrompt();
     setupNavbarNotifications();
+    setupMlResultsModal();
     restoreAlertFilterState();
     restoreNotifMenuState();
 

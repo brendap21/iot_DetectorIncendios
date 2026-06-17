@@ -144,6 +144,96 @@ function interpretarEstado(ultima) {
     </div>`;
 }
 
+function renderMlEvaluationModal() {
+  return `
+  <div id="mlResultsModal" class="ml-modal" aria-hidden="true">
+    <div class="ml-modal__backdrop" data-ml-close></div>
+    <section class="ml-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mlResultsTitle">
+      <div class="ml-modal__header">
+        <div>
+          <p class="ml-kicker">Evaluacion del modelo</p>
+          <h3 id="mlResultsTitle">Resultados de Machine Learning</h3>
+        </div>
+        <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
+      </div>
+
+      <div class="ml-summary-grid">
+        <article>
+          <span class="ml-label">Exactitud</span>
+          <strong>100%</strong>
+          <small>Predicciones correctas del conjunto de validacion.</small>
+        </article>
+        <article>
+          <span class="ml-label">Precision</span>
+          <strong>100%</strong>
+          <small>Alertas generadas que realmente eran incendio.</small>
+        </article>
+        <article>
+          <span class="ml-label">Sensibilidad</span>
+          <strong>100%</strong>
+          <small>Incendios reales detectados por el modelo.</small>
+        </article>
+        <article>
+          <span class="ml-label">F1-score</span>
+          <strong>100%</strong>
+          <small>Balance entre precision y sensibilidad.</small>
+        </article>
+      </div>
+
+      <div class="ml-modal__body">
+        <section class="ml-block">
+          <h4>Que analiza el modelo</h4>
+          <p>El sistema usa las lecturas de llama, gas y movimiento para estimar el riesgo de incendio. La salida se resume en tres niveles: normal, medio y alto.</p>
+          <ul>
+            <li><strong>Llama:</strong> si se detecta llama, el riesgo sube inmediatamente.</li>
+            <li><strong>Gas:</strong> valores altos indican posible humo, combustion o fuga.</li>
+            <li><strong>Movimiento:</strong> ayuda a contextualizar si hay actividad cerca del sensor.</li>
+          </ul>
+        </section>
+
+        <section class="ml-block">
+          <h4>Componentes de ML usados</h4>
+          <div class="ml-methods">
+            <div>
+              <strong>Clasificador de riesgo</strong>
+              <p>Usa un modelo ONNX entrenado. Si el archivo del modelo no esta disponible, usa reglas de respaldo: llama o gas alto = riesgo alto; movimiento o gas medio = riesgo medio.</p>
+            </div>
+            <div>
+              <strong>Deteccion de anomalias</strong>
+              <p>Compara la lectura actual contra los parametros del entrenamiento usando Z-score. Si una variable se aleja demasiado, se marca como anomalia.</p>
+            </div>
+            <div>
+              <strong>Tendencia de gas</strong>
+              <p>Calcula una recta sobre las ultimas lecturas de gas. Si la pendiente sube o baja mas de 10 ADC por lectura, reporta subiendo o bajando.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="ml-block">
+          <h4>Matriz de confusion</h4>
+          <div class="confusion-grid" aria-label="Matriz de confusion del modelo">
+            <div class="corner"></div>
+            <div class="axis">Real: incendio</div>
+            <div class="axis">Real: normal</div>
+            <div class="axis">Predijo incendio</div>
+            <div class="hit"><strong>VP: 6</strong><span>Detecto correctamente incendios.</span></div>
+            <div><strong>FP: 0</strong><span>No genero falsas alarmas.</span></div>
+            <div class="axis">Predijo normal</div>
+            <div><strong>FN: 0</strong><span>No dejo incendios sin detectar.</span></div>
+            <div class="hit"><strong>VN: 4</strong><span>Reconocio estados normales.</span></div>
+          </div>
+        </section>
+
+        <section class="ml-block">
+          <h4>Como explicarlo en clase</h4>
+          <p>El detector no solo guarda sensores: interpreta los datos. Primero clasifica el riesgo, luego revisa si la lectura parece anormal y finalmente estima si el gas sube, baja o se mantiene estable. Con la matriz de confusion se valida que, en el conjunto de prueba, el modelo identifica correctamente los casos de incendio y los casos normales.</p>
+          <p class="ml-note">Nota: estas metricas son de un conjunto de validacion demostrativo. Para una validacion final se recomienda usar mas lecturas reales tomadas con el prototipo.</p>
+        </section>
+      </div>
+    </section>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
@@ -472,6 +562,178 @@ function renderResultadosPage(lecturas, meta) {
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn:disabled:hover { transform: none; }
 
+    .ml-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      z-index: 80;
+    }
+    .ml-modal.open {
+      display: grid;
+    }
+    .ml-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 22, 42, 0.58);
+    }
+    .ml-modal__panel {
+      position: relative;
+      width: min(940px, 100%);
+      max-height: min(86vh, 820px);
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #d8dfef;
+      border-radius: 12px;
+      box-shadow: 0 22px 70px rgba(13, 22, 42, 0.28);
+    }
+    .ml-modal__header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #fff;
+      border-bottom: 1px solid #e2e7f3;
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+    .ml-modal__header h3 {
+      font-size: 20px;
+      color: #17243f;
+      margin-top: 3px;
+    }
+    .ml-kicker,
+    .ml-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #65718f;
+      font-weight: 800;
+    }
+    .ml-modal__close {
+      border: 1px solid #d6deee;
+      background: #f6f8fc;
+      color: #263553;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .ml-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 16px 20px 0;
+    }
+    .ml-summary-grid article {
+      border: 1px solid #dfe5f2;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8faff;
+    }
+    .ml-summary-grid strong {
+      display: block;
+      font-size: 28px;
+      color: #1f5fbf;
+      margin: 4px 0;
+    }
+    .ml-summary-grid small {
+      color: #5f6780;
+      line-height: 1.35;
+    }
+    .ml-modal__body {
+      display: grid;
+      gap: 14px;
+      padding: 16px 20px 22px;
+    }
+    .ml-block {
+      border: 1px solid #e0e6f2;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+    .ml-block h4 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #2e3a59;
+      margin-bottom: 8px;
+    }
+    .ml-block p,
+    .ml-block li {
+      color: #3d465f;
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .ml-block ul {
+      margin: 10px 0 0 18px;
+      display: grid;
+      gap: 5px;
+    }
+    .ml-methods {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .ml-methods div {
+      background: #f8faff;
+      border: 1px solid #e0e6f2;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .ml-methods strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #17243f;
+    }
+    .confusion-grid {
+      display: grid;
+      grid-template-columns: 150px repeat(2, minmax(0, 1fr));
+      border: 1px solid #dfe5f2;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .confusion-grid > div {
+      min-height: 76px;
+      padding: 12px;
+      border-right: 1px solid #dfe5f2;
+      border-bottom: 1px solid #dfe5f2;
+      background: #fff;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+    }
+    .confusion-grid > div:nth-child(3n) {
+      border-right: none;
+    }
+    .confusion-grid > div:nth-last-child(-n + 3) {
+      border-bottom: none;
+    }
+    .confusion-grid .axis {
+      background: #f4f7fc;
+      color: #2e3a59;
+      font-weight: 800;
+    }
+    .confusion-grid .hit {
+      background: #edf8f2;
+    }
+    .confusion-grid span {
+      color: #5f6780;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .ml-note {
+      margin-top: 10px;
+      color: #6c5870 !important;
+      background: #fbf6ff;
+      border: 1px solid #eadcf5;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
     .btn-notif {
       background: rgba(255, 255, 255, 0.1);
       color: #fff;
@@ -670,6 +932,31 @@ function renderResultadosPage(lecturas, meta) {
         max-height: 60vh;
       }
 
+      .ml-modal {
+        padding: 10px;
+        align-items: start;
+      }
+      .ml-modal__panel {
+        max-height: 92vh;
+      }
+      .ml-modal__header {
+        align-items: flex-start;
+      }
+      .ml-summary-grid,
+      .ml-methods,
+      .confusion-grid {
+        grid-template-columns: 1fr;
+      }
+      .confusion-grid > div,
+      .confusion-grid > div:nth-child(3n),
+      .confusion-grid > div:nth-last-child(-n + 3) {
+        border-right: none;
+        border-bottom: 1px solid #dfe5f2;
+      }
+      .confusion-grid > div:last-child {
+        border-bottom: none;
+      }
+
       .table-wrap {
         overflow: visible;
       }
@@ -800,6 +1087,7 @@ function renderResultadosPage(lecturas, meta) {
     <p class="section-hint">Interpretacion automatica y acciones de monitoreo.</p>
     <div class="actions">
       <div class="actions-row">
+        <button id="mlResultsBtn" class="btn btn-primary" type="button">Ver resultados ML</button>
         <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar Web App</button>
       </div>
       <div class="filters-row">
@@ -906,6 +1194,8 @@ function renderResultadosPage(lecturas, meta) {
     </section>
 
   </main>
+
+  ${renderMlEvaluationModal()}
 
   <footer>
     <span>Proyecto IoT — CETI 7mo semestre</span>
