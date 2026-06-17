@@ -230,25 +230,6 @@
       }
     });
 
-    mlResultsModal.addEventListener('click', function (event) {
-      var target = event.target;
-      if (!target || !target.matches || !target.matches('[data-validate-reading]')) {
-        return;
-      }
-
-      var lecturaId = target.getAttribute('data-reading-id');
-      var incendioReal = target.getAttribute('data-real-fire') === 'true';
-      target.disabled = true;
-
-      validarLecturaReal(lecturaId, incendioReal)
-        .then(refreshMlEvaluation)
-        .catch(function (error) {
-          alert('No se pudo guardar la validacion: ' + error.message);
-        })
-        .finally(function () {
-          target.disabled = false;
-        });
-    });
   }
 
   function formatPercent(value) {
@@ -300,7 +281,7 @@
     }
 
     if (!Array.isArray(lecturas) || lecturas.length === 0) {
-      mlValidationList.innerHTML = '<div class="ml-note">Todavia no hay lecturas reales para validar.</div>';
+      mlValidationList.innerHTML = '<div class="ml-note">Todavia no hay lecturas reales para evaluar.</div>';
       return;
     }
 
@@ -308,10 +289,8 @@
       var fecha = lectura.fecha
         ? new Date(lectura.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })
         : 'Sin fecha';
-      var real = typeof lectura.incendioReal === 'boolean' ? lectura.incendioReal : null;
       var riesgo = lectura.riesgo || 'normal';
-      var normalActive = real === false ? ' active' : '';
-      var fireActive = real === true ? ' active' : '';
+      var observado = lectura.incendioObservado ? 'Incendio observado' : 'Normal observado';
 
       return '<div class="ml-validation-item">' +
         '<div>' +
@@ -319,26 +298,11 @@
           '<span>Llama: ' + (Number(lectura.llama) === 1 ? 'Si' : 'No') +
           ' | Gas: ' + (lectura.gas || 0) +
           ' | Movimiento: ' + (Number(lectura.movimiento) === 1 ? 'Si' : 'No') +
-          ' | Modelo: ' + riesgo + '</span>' +
-        '</div>' +
-        '<div class="ml-validation-actions">' +
-          '<button data-validate-reading data-reading-id="' + lectura.id + '" data-real-fire="false" class="' + normalActive + '">Normal real</button>' +
-          '<button data-validate-reading data-reading-id="' + lectura.id + '" data-real-fire="true" class="danger' + fireActive + '">Incendio real</button>' +
+          ' | Modelo: ' + riesgo +
+          ' | Real: ' + observado + '</span>' +
         '</div>' +
       '</div>';
     }).join('');
-  }
-
-  async function validarLecturaReal(lecturaId, incendioReal) {
-    if (!lecturaId) {
-      throw new Error('Lectura sin ID');
-    }
-
-    await fetchJson('/api/sensores/' + encodeURIComponent(lecturaId) + '/validacion', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ incendioReal: incendioReal }),
-    });
   }
 
   async function refreshMlEvaluation() {
@@ -353,11 +317,11 @@
     renderValidationList(data.lecturas || []);
 
     if (mlValidationStatus) {
-      var validadas = evaluacion.totalValidadas || 0;
-      var pendientes = evaluacion.totalPendientes || 0;
-      mlValidationStatus.textContent = validadas > 0
-        ? 'Lecturas validadas: ' + validadas + '. Pendientes en la muestra: ' + pendientes + '.'
-        : 'Sin lecturas validadas. Marca algunas lecturas reales para calcular metricas.';
+      var evaluadas = evaluacion.totalEvaluadas || 0;
+      var incendios = evaluacion.totalObservadasIncendio || 0;
+      mlValidationStatus.textContent = evaluadas > 0
+        ? 'Lecturas evaluadas: ' + evaluadas + '. Incendios observados: ' + incendios + '.'
+        : 'Sin lecturas reales suficientes para calcular metricas.';
     }
   }
 
@@ -621,8 +585,8 @@
         if (cardGasValue) cardGasValue.textContent = String(lastReading.gas || 0);
         if (cardMovimientoValue) cardMovimientoValue.textContent = Number(lastReading.movimiento) === 1 ? 'Si' : 'No';
         if (cardCountValue) cardCountValue.textContent = (lecturas.length || 0) + '';
-        if (interpretationBlock && lastReading.riesgo) {
-          interpretationBlock.textContent = interpretarEstado(lastReading.riesgo);
+        if (interpretationBlock) {
+          interpretationBlock.innerHTML = interpretarLectura(lastReading);
         }
         if (lastUpdatedTime) {
           var now = new Date();
@@ -663,6 +627,36 @@
     if (riesgo.includes('ALTO')) return '🟠 ALTO RIESGO';
     if (riesgo.includes('MEDIO')) return '🟡 RIESGO MODERADO';
     return '🟢 BAJO RIESGO';
+  }
+
+  function interpretarLectura(lectura) {
+    if (!lectura) return '<p class="interp">Sin datos todavia.</p>';
+
+    var riesgo = String(lectura.riesgo || 'normal').toLowerCase();
+    var tagClass = riesgo === 'alto' ? 'tag-alto' : riesgo === 'medio' ? 'tag-medio' : 'tag-normal';
+    var tagText = riesgo === 'alto' ? 'Alto' : riesgo === 'medio' ? 'Medio' : 'Normal';
+    var partes = [];
+
+    partes.push(Number(lectura.llama) === 1 ? 'Se detecta llama.' : 'No se detecta llama.');
+    partes.push('Gas: ' + (lectura.gas || 0) + ' ADC.');
+    partes.push(Number(lectura.movimiento) === 1 ? 'Hay movimiento en el area.' : 'Sin movimiento detectado.');
+
+    if (lectura.prediccion_gas === 'subiendo') {
+      partes.push('El gas va en aumento.');
+    } else if (lectura.prediccion_gas === 'bajando') {
+      partes.push('El gas esta bajando.');
+    } else {
+      partes.push('Gas estable.');
+    }
+
+    if (lectura.anomalia === true) {
+      partes.push('Lectura anomala.');
+    }
+
+    return '<div class="interp-wrap">' +
+      '<span class="tag ' + tagClass + '">' + tagText + '</span>' +
+      '<p class="interp">' + partes.join(' ') + '</p>' +
+    '</div>';
   }
 
   async function init() {

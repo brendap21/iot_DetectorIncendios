@@ -151,7 +151,7 @@ function renderMlEvaluationModal() {
     <section class="ml-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mlResultsTitle">
       <div class="ml-modal__header">
         <div>
-          <p class="ml-kicker">Validacion con lecturas reales</p>
+          <p class="ml-kicker">Evaluacion con lecturas reales</p>
           <h3 id="mlResultsTitle">Resultados de Machine Learning</h3>
         </div>
         <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
@@ -194,8 +194,8 @@ function renderMlEvaluationModal() {
         </section>
 
         <section class="ml-block">
-          <h4>Lecturas reales para validacion</h4>
-          <p>Las metricas se calculan unicamente con lecturas reales del prototipo que ya fueron marcadas como incendio real o normal real.</p>
+          <h4>Lecturas reales usadas</h4>
+          <p>Las metricas se calculan automaticamente con lecturas del prototipo. Se considera incendio observado cuando hay llama o el gas supera el umbral alto.</p>
           <div id="mlValidationStatus" class="ml-note">Cargando evaluacion...</div>
           <div id="mlValidationList" class="ml-validation-list"></div>
         </section>

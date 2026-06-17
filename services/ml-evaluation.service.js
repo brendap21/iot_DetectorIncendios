@@ -5,25 +5,22 @@ function esPrediccionIncendio(riesgo) {
   return value === 'alto' || value === 'peligro' || value === 'critico' || value === 'critical';
 }
 
+function esIncendioObservado(lectura) {
+  const llama = Number(lectura && lectura.llama) === 1;
+  const gas = Number(lectura && lectura.gas) || 0;
+  return llama || gas >= 1800;
+}
+
 function dividirSeguro(numerador, denominador) {
   return denominador === 0 ? null : numerador / denominador;
 }
 
-function normalizarIncendioReal(value) {
-  if (typeof value === 'boolean') return value;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  return null;
-}
-
 function calcularEvaluacionModelo(lecturas) {
-  const validadas = Array.isArray(lecturas)
-    ? lecturas.filter((lectura) => normalizarIncendioReal(lectura.incendioReal) !== null)
-    : [];
+  const evaluadas = Array.isArray(lecturas) ? lecturas : [];
 
-  const matriz = validadas.reduce(
+  const matriz = evaluadas.reduce(
     (acc, lectura) => {
-      const real = normalizarIncendioReal(lectura.incendioReal);
+      const real = esIncendioObservado(lectura);
       const predijoIncendio = esPrediccionIncendio(lectura.riesgo);
 
       if (predijoIncendio && real) acc.verdaderosPositivos += 1;
@@ -41,7 +38,7 @@ function calcularEvaluacionModelo(lecturas) {
     },
   );
 
-  const total = validadas.length;
+  const total = evaluadas.length;
   const exactitud = dividirSeguro(matriz.verdaderosPositivos + matriz.verdaderosNegativos, total);
   const precision = dividirSeguro(
     matriz.verdaderosPositivos,
@@ -56,9 +53,10 @@ function calcularEvaluacionModelo(lecturas) {
     : (2 * precision * sensibilidad) / (precision + sensibilidad);
 
   return {
-    totalLecturas: Array.isArray(lecturas) ? lecturas.length : 0,
-    totalValidadas: total,
-    totalPendientes: Math.max((Array.isArray(lecturas) ? lecturas.length : 0) - total, 0),
+    totalLecturas: total,
+    totalEvaluadas: total,
+    totalObservadasIncendio: evaluadas.filter(esIncendioObservado).length,
+    criterioReal: 'Incendio observado cuando llama = 1 o gas >= 1800 ADC.',
     matriz,
     metricas: {
       exactitud,
@@ -72,5 +70,5 @@ function calcularEvaluacionModelo(lecturas) {
 module.exports = {
   calcularEvaluacionModelo,
   esPrediccionIncendio,
-  normalizarIncendioReal,
+  esIncendioObservado,
 };
