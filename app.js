@@ -765,29 +765,39 @@ function renderResultadosPage(lecturas, meta) {
     <div class="cards">
       <div class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
         <div class="c-label">Llama</div>
-        <div class="c-value">${ultima ? (ultima.llama === 1 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-value" id="cardLlamaValue">${ultima ? (ultima.llama === 1 ? 'Si' : 'No') : '-'}</div>
         <div class="c-unit">KY-026</div>
       </div>
       <div class="card">
         <div class="c-label">Gas</div>
-        <div class="c-value">${ultima ? ultima.gas : '-'}</div>
+        <div class="c-value" id="cardGasValue">${ultima ? ultima.gas : '-'}</div>
         <div class="c-unit">ADC (0-4095)</div>
       </div>
       <div class="card">
         <div class="c-label">Movimiento</div>
-        <div class="c-value">${ultima ? (ultima.movimiento === 1 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-value" id="cardMovimientoValue">${ultima ? (ultima.movimiento === 1 ? 'Si' : 'No') : '-'}</div>
         <div class="c-unit">PIR</div>
       </div>
       <div class="card">
         <div class="c-label">Lecturas cargadas</div>
-        <div class="c-value">${meta.count}</div>
+        <div class="c-value" id="cardCountValue">${meta.count}</div>
         <div class="c-unit">ultimas 20</div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div class="status-card">
+        <div class="status-label">Interpretacion ML</div>
+        <div id="interpretationBlock">${interpretarEstado(ultima)}</div>
+      </div>
+      <div class="status-card">
+        <div class="status-label">Ultima actualizacion</div>
+        <div class="status-value" id="lastUpdatedTime">${ultima ? new Date(ultima.fecha).toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City' }) : '-'}</div>
       </div>
     </div>
 
     <h2>Analisis ML</h2>
     <p class="section-hint">Interpretacion automatica y acciones de monitoreo.</p>
-    ${interpretarEstado(ultima)}
     <div class="actions">
       <div class="actions-row">
         <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar Web App</button>
@@ -818,14 +828,31 @@ function renderResultadosPage(lecturas, meta) {
     </section>
 
     <section id="sec-grafica" class="section">
-    <h2>Gas en el tiempo</h2>
-    <p class="section-hint">Evolucion de gas en las ultimas lecturas.</p>
-    <div class="chart-wrap">
-      <canvas id="gasChart"
-        data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
-        data-gas='${JSON.stringify(lecturas.slice().reverse().map(l => l.gas ?? null))}'
-        data-riesgo='${JSON.stringify(lecturas.slice().reverse().map(l => l.riesgo ?? "normal"))}'
-      ></canvas>
+    <h2>Graficas de sensores</h2>
+    <p class="section-hint">Visualizacion dinamica de gas, incendios y movimiento.</p>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">Gas en el tiempo</div>
+        <canvas id="gasChart"
+          data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
+          data-gas='${JSON.stringify(lecturas.slice().reverse().map(l => l.gas ?? null))}'
+          data-riesgo='${JSON.stringify(lecturas.slice().reverse().map(l => l.riesgo ?? "normal"))}'
+        ></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">Incendio binario</div>
+        <canvas id="fireChart"
+          data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
+          data-fire='${JSON.stringify(lecturas.slice().reverse().map(l => l.llama === 1 ? 1 : 0))}'
+        ></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">Movimiento binario</div>
+        <canvas id="movementChart"
+          data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
+          data-movement='${JSON.stringify(lecturas.slice().reverse().map(l => l.movimiento === 1 ? 1 : 0))}'
+        ></canvas>
+      </div>
     </div>
     </section>
 

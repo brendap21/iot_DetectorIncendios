@@ -56,6 +56,34 @@ function isQuotaError(error) {
   return msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
 }
 
+const listeners = new Set();
+
+function pushSseEvent(res, event, data) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function subscribeLecturasStream(req, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+  });
+
+  res.write('\n');
+  listeners.add(res);
+
+  req.on('close', function () {
+    listeners.delete(res);
+  });
+}
+
+function notifyLectura(lectura) {
+  for (const client of listeners) {
+    pushSseEvent(client, 'lectura', lectura);
+  }
+}
+
 const guardarLectura = async (req, res) => {
   if (!isFirebaseConfigured || !db) {
     logger.warn('Request received but Firebase is not configured', { path: req.path });
@@ -98,11 +126,12 @@ const guardarLectura = async (req, res) => {
     };
 
     const doc = await db.collection('lecturas').add(lectura);
-    runtimeStore.saveLectura({ ...lectura, id: doc.id });
+    const lecturaGuardada = { ...lectura, id: doc.id };
+    runtimeStore.saveLectura(lecturaGuardada);
 
     logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
-    const alertasGeneradas = evaluarAlertas({ lectura, ultimasLecturas });
+    const alertasGeneradas = evaluarAlertas({ lectura: lecturaGuardada, ultimasLecturas });
     const alertasAEnviar = filtrarAlertasPorCooldown(alertasGeneradas);
 
     if (alertasAEnviar.length > 0) {
@@ -138,6 +167,18 @@ const guardarLectura = async (req, res) => {
       }
     }
 
+    // Emitimos evento SSE a todos los clientes conectados.
+    notifyLectura({
+      id: doc.id,
+      llama,
+      gas,
+      movimiento,
+      riesgo,
+      anomalia,
+      prediccion_gas,
+      fecha: lectura.fecha.toISOString(),
+    });
+
     // Log a high-visibility warning when risk is elevated so it stands out in
     // Railway's log stream and can be filtered with a keyword alert if needed.
     if (riesgo === 'alto') {
@@ -159,7 +200,7 @@ const guardarLectura = async (req, res) => {
       });
     }
 
-    res.status(201).json({ ok: true, id: doc.id, data: lectura });
+    res.status(201).json({ ok: true, id: doc.id, data: lecturaGuardada });
   } catch (error) {
     logger.error('Error guardando lectura', error && error.stack ? error.stack : error);
 
@@ -178,6 +219,10 @@ const guardarLectura = async (req, res) => {
         };
 
         runtimeStore.saveLectura(lecturaMem);
+        notifyLectura({
+          ...lecturaMem,
+          fecha: lecturaMem.fecha.toISOString(),
+        });
         return res.status(201).json({
           ok: true,
           degraded: true,
@@ -353,4 +398,4 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
-module.exports = { guardarLectura, obtenerLecturasRecientes, obtenerEstadisticas };
+module.exports = { guardarLectura, obtenerLecturasRecientes, obtenerEstadisticas, subscribeLecturasStream };

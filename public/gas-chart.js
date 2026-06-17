@@ -1,56 +1,167 @@
 // public/gas-chart.js
-// Reads pre-serialized sensor data from data-* attributes on the canvas element
-// so that no inline script is required (keeps Content-Security-Policy 'self' compliant).
+// Graph helpers for the dashboard: gas, fuego binario y movimiento binario.
+// El cliente puede actualizar los tres graficos en vivo usando las funciones
+// expuestas en window.
 (function () {
   'use strict';
 
-  const canvas = document.getElementById('gasChart');
-  if (!canvas) return;
+  var gasChart = null;
+  var fireChart = null;
+  var movementChart = null;
 
-  const rawLabels = JSON.parse(canvas.dataset.labels || '[]');
-  const rawGas    = JSON.parse(canvas.dataset.gas    || '[]');
-  const rawRiesgo = JSON.parse(canvas.dataset.riesgo || '[]');
+  function createChart(canvas, config) {
+    if (!canvas) return null;
+    return new Chart(canvas, config);
+  }
 
-  // Color each data point by its risk level so anomalies stand out immediately.
-  const pointColors = rawRiesgo.map(function (r) {
-    if (r === 'alto')  return '#c0392b';
-    if (r === 'medio') return '#b7770d';
-    return '#1e8449';
-  });
+  function buildGasChart(canvas, labels, gasData, riesgoData) {
+    var pointColors = riesgoData.map(function (r) {
+      if (r === 'alto') return '#c0392b';
+      if (r === 'medio') return '#b7770d';
+      return '#1e8449';
+    });
 
-  new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels: rawLabels,
-      datasets: [{
-        label: 'Gas (ADC)',
-        data: rawGas,
-        borderColor: '#3c6bce',
-        backgroundColor: 'rgba(60,107,206,0.08)',
-        pointBackgroundColor: pointColors,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        tension: 0.3,
-        fill: true,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            afterLabel: function (ctx) {
-              return 'Riesgo: ' + rawRiesgo[ctx.dataIndex];
+    return createChart(canvas, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Gas (ADC)',
+          data: gasData,
+          borderColor: '#3c6bce',
+          backgroundColor: 'rgba(60,107,206,0.12)',
+          pointBackgroundColor: pointColors,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.25,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: function (ctx) {
+                return 'Riesgo: ' + riesgoData[ctx.dataIndex];
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { font: { size: 11 }, maxRotation: 45 } },
+          y: { beginAtZero: false, ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+  }
+
+  function buildBinaryChart(canvas, labels, values, labelText, color) {
+    return createChart(canvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: labelText,
+          data: values,
+          backgroundColor: values.map(function (value) {
+            return value === 1 ? color : '#dbe2ef';
+          }),
+          borderColor: values.map(function (value) {
+            return value === 1 ? color : '#dbe2ef';
+          }),
+          borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return labelText + ': ' + (ctx.parsed.y === 1 ? 'Sí' : 'No');
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { font: { size: 11 }, maxRotation: 45 } },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1,
+              callback: function (value) {
+                return value === 1 ? 'Sí' : 'No';
+              },
             },
           },
         },
       },
-      scales: {
-        x: { ticks: { font: { size: 11 }, maxRotation: 45 } },
-        y: { beginAtZero: false, ticks: { font: { size: 11 } } },
-      },
-    },
-  });
+    });
+  }
+
+  function loadInitialChartData(canvasId, datasetName) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    var labels = JSON.parse(canvas.dataset.labels || '[]');
+    var dataset = JSON.parse(canvas.dataset[datasetName] || '[]');
+    return { canvas: canvas, labels: labels, dataset: dataset };
+  }
+
+  function updateChart(chart, labels, data, extra) {
+    if (!chart) return;
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    if (extra && chart.data.datasets[0].pointBackgroundColor) {
+      chart.data.datasets[0].pointBackgroundColor = extra;
+    }
+    chart.update('none');
+  }
+
+  function initCharts() {
+    var gasMeta = loadInitialChartData('gasChart', 'gas');
+    if (gasMeta) {
+      var riesgoData = JSON.parse(document.getElementById('gasChart').dataset.riesgo || '[]');
+      gasChart = buildGasChart(gasMeta.canvas, gasMeta.labels, gasMeta.dataset, riesgoData);
+    }
+
+    var fireMeta = loadInitialChartData('fireChart', 'fire');
+    if (fireMeta) {
+      fireChart = buildBinaryChart(fireMeta.canvas, fireMeta.labels, fireMeta.dataset, 'Incendio', '#c0392b');
+    }
+
+    var movementMeta = loadInitialChartData('movementChart', 'movement');
+    if (movementMeta) {
+      movementChart = buildBinaryChart(movementMeta.canvas, movementMeta.labels, movementMeta.dataset, 'Movimiento', '#1e8449');
+    }
+  }
+
+  window.updateGasChart = function (labels, gasValues, riesgoValues) {
+    var colors = riesgoValues.map(function (r) {
+      if (r === 'alto') return '#c0392b';
+      if (r === 'medio') return '#b7770d';
+      return '#1e8449';
+    });
+    updateChart(gasChart, labels, gasValues, colors);
+  };
+
+  window.updateFireChart = function (labels, fireValues) {
+    updateChart(fireChart, labels, fireValues);
+  };
+
+  window.updateMovementChart = function (labels, movementValues) {
+    updateChart(movementChart, labels, movementValues);
+  };
+
+  window.updateDashboardCharts = function (labels, gasValues, riesgoValues, fireValues, movementValues) {
+    window.updateGasChart(labels, gasValues, riesgoValues);
+    window.updateFireChart(labels, fireValues);
+    window.updateMovementChart(labels, movementValues);
+  };
+
+  initCharts();
 }());
