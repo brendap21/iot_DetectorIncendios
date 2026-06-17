@@ -421,6 +421,57 @@
     });
   }
 
+  async function refreshDashboard() {
+    try {
+      console.debug('[pwa-client] refreshDashboard: llamando a /api/sensores/ultimas');
+      var response = await fetch('/api/sensores/ultimas?limit=20', { cache: 'no-store' });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error cargando lecturas');
+
+      var lastReading = data && data.length > 0 ? data[0] : null;
+      if (lastReading) {
+        var cardLlamaValue = document.getElementById('cardLlamaValue');
+        var cardGasValue = document.getElementById('cardGasValue');
+        var cardMovimientoValue = document.getElementById('cardMovimientoValue');
+        var cardCountValue = document.getElementById('cardCountValue');
+        var interpretationBlock = document.getElementById('interpretationBlock');
+        var lastUpdatedTime = document.getElementById('lastUpdatedTime');
+
+        if (cardLlamaValue) cardLlamaValue.textContent = (lastReading.llama || 0) + '';
+        if (cardGasValue) cardGasValue.textContent = (lastReading.gas || 0) + ' ppm';
+        if (cardMovimientoValue) cardMovimientoValue.textContent = (lastReading.movimiento || 0) + '';
+        if (cardCountValue) cardCountValue.textContent = (data.length || 0) + '';
+        if (interpretationBlock && lastReading.riesgo) {
+          interpretationBlock.textContent = interpretarEstado(lastReading.riesgo);
+        }
+        if (lastUpdatedTime) {
+          var now = new Date();
+          lastUpdatedTime.textContent = now.toLocaleTimeString('es-ES');
+        }
+      }
+
+      var labels = data.map(function (r) { return new Date(r.timestamp).toLocaleTimeString('es-ES'); }).reverse();
+      var gasValues = data.map(function (r) { return r.gas || 0; }).reverse();
+      var riesgoValues = data.map(function (r) { return r.riesgo ? (r.riesgo.includes('ALTO') ? 3 : r.riesgo.includes('MEDIO') ? 2 : 1) : 1; }).reverse();
+
+      if (typeof window.updateGasChart === 'function') {
+        window.updateGasChart(labels, gasValues, riesgoValues);
+      }
+      console.debug('[pwa-client] refreshDashboard: actualizado OK');
+
+    } catch (error) {
+      console.warn('No se pudo actualizar dashboard:', error.message);
+    }
+  }
+
+  function interpretarEstado(riesgo) {
+    if (!riesgo) return 'Desconocido';
+    if (riesgo.includes('CRÍTICO') || riesgo.includes('CRITICO')) return '🔴 CRÍTICO';
+    if (riesgo.includes('ALTO')) return '🟠 ALTO RIESGO';
+    if (riesgo.includes('MEDIO')) return '🟡 RIESGO MODERADO';
+    return '🟢 BAJO RIESGO';
+  }
+
   async function init() {
     setupInstallPrompt();
     setupNavbarNotifications();
@@ -467,6 +518,13 @@
         }
       });
     }
+
+    // Actualizamos el dashboard inmediatamente al iniciar.
+    try { await refreshDashboard(); } catch (e) { console.warn('refreshDashboard inicial fallo', e && e.message ? e.message : e); }
+
+    // Refrescar cuando la pestaña vuelve a tener foco o cambia visibilidad.
+    window.addEventListener('focus', function () { refreshDashboard().catch(function () { return null; }); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshDashboard().catch(function () { return null; }); });
 
     await refreshAlerts();
     setInterval(refreshAlerts, 15000);
