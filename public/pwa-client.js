@@ -526,6 +526,9 @@
     window.addEventListener('focus', function () { refreshDashboard().catch(function () { return null; }); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshDashboard().catch(function () { return null; }); });
 
+    // Polling constante cada 10 segundos para que el dashboard se actualice sin reload.
+    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 10000);
+
     await refreshAlerts();
     setInterval(refreshAlerts, 15000);
   }
