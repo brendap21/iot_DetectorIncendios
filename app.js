@@ -151,34 +151,13 @@ function renderMlEvaluationModal() {
     <section class="ml-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mlResultsTitle">
       <div class="ml-modal__header">
         <div>
-          <p class="ml-kicker">Evaluacion del modelo</p>
+          <p class="ml-kicker">Validacion con lecturas reales</p>
           <h3 id="mlResultsTitle">Resultados de Machine Learning</h3>
         </div>
         <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
       </div>
 
-      <div class="ml-summary-grid">
-        <article>
-          <span class="ml-label">Exactitud</span>
-          <strong>100%</strong>
-          <small>Predicciones correctas del conjunto de validacion.</small>
-        </article>
-        <article>
-          <span class="ml-label">Precision</span>
-          <strong>100%</strong>
-          <small>Alertas generadas que realmente eran incendio.</small>
-        </article>
-        <article>
-          <span class="ml-label">Sensibilidad</span>
-          <strong>100%</strong>
-          <small>Incendios reales detectados por el modelo.</small>
-        </article>
-        <article>
-          <span class="ml-label">F1-score</span>
-          <strong>100%</strong>
-          <small>Balance entre precision y sensibilidad.</small>
-        </article>
-      </div>
+      <div id="mlSummaryGrid" class="ml-summary-grid" aria-live="polite"></div>
 
       <div class="ml-modal__body">
         <section class="ml-block">
@@ -196,7 +175,7 @@ function renderMlEvaluationModal() {
           <div class="ml-methods">
             <div>
               <strong>Clasificador de riesgo</strong>
-              <p>Usa un modelo ONNX entrenado. Si el archivo del modelo no esta disponible, usa reglas de respaldo: llama o gas alto = riesgo alto; movimiento o gas medio = riesgo medio.</p>
+              <p>Clasifica la lectura en riesgo normal, medio o alto. Si el modelo entrenado no esta disponible, usa reglas de respaldo para mantener el monitoreo activo.</p>
             </div>
             <div>
               <strong>Deteccion de anomalias</strong>
@@ -211,23 +190,14 @@ function renderMlEvaluationModal() {
 
         <section class="ml-block">
           <h4>Matriz de confusion</h4>
-          <div class="confusion-grid" aria-label="Matriz de confusion del modelo">
-            <div class="corner"></div>
-            <div class="axis">Real: incendio</div>
-            <div class="axis">Real: normal</div>
-            <div class="axis">Predijo incendio</div>
-            <div class="hit"><strong>VP: 6</strong><span>Detecto correctamente incendios.</span></div>
-            <div><strong>FP: 0</strong><span>No genero falsas alarmas.</span></div>
-            <div class="axis">Predijo normal</div>
-            <div><strong>FN: 0</strong><span>No dejo incendios sin detectar.</span></div>
-            <div class="hit"><strong>VN: 4</strong><span>Reconocio estados normales.</span></div>
-          </div>
+          <div id="mlConfusionGrid" class="confusion-grid" aria-label="Matriz de confusion del modelo"></div>
         </section>
 
         <section class="ml-block">
-          <h4>Como explicarlo en clase</h4>
-          <p>El detector no solo guarda sensores: interpreta los datos. Primero clasifica el riesgo, luego revisa si la lectura parece anormal y finalmente estima si el gas sube, baja o se mantiene estable. Con la matriz de confusion se valida que, en el conjunto de prueba, el modelo identifica correctamente los casos de incendio y los casos normales.</p>
-          <p class="ml-note">Nota: estas metricas son de un conjunto de validacion demostrativo. Para una validacion final se recomienda usar mas lecturas reales tomadas con el prototipo.</p>
+          <h4>Lecturas reales para validacion</h4>
+          <p>Las metricas se calculan unicamente con lecturas reales del prototipo que ya fueron marcadas como incendio real o normal real.</p>
+          <div id="mlValidationStatus" class="ml-note">Cargando evaluacion...</div>
+          <div id="mlValidationList" class="ml-validation-list"></div>
         </section>
       </div>
     </section>
@@ -499,7 +469,7 @@ function renderResultadosPage(lecturas, meta) {
     tr:hover td { background: #fafbff; }
     td.val-alerta { color: #c0392b; font-weight: 600; }
 
-    /* ---- chart ---- */
+    /* ---- graficas ---- */
     .chart-wrap {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -508,6 +478,42 @@ function renderResultadosPage(lecturas, meta) {
       box-shadow: var(--shadow);
     }
     .chart-wrap canvas { display: block; width: 100% !important; height: 220px !important; }
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+    .chart-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .chart-card:first-child {
+      grid-column: 1 / -1;
+    }
+    .chart-header {
+      color: #2e3a59;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .chart-card canvas {
+      display: block;
+      width: 100% !important;
+      height: 220px !important;
+      max-height: 220px;
+    }
+    .chart-card:not(:first-child) canvas {
+      height: 150px !important;
+      max-height: 150px;
+    }
 
     .actions {
       display: flex;
@@ -733,6 +739,56 @@ function renderResultadosPage(lecturas, meta) {
       border-radius: 8px;
       padding: 10px;
     }
+    .ml-validation-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .ml-validation-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #e0e6f2;
+      border-radius: 8px;
+      padding: 10px;
+      background: #f8faff;
+    }
+    .ml-validation-item strong {
+      color: #17243f;
+    }
+    .ml-validation-item span {
+      display: block;
+      color: #65718f;
+      font-size: 12px;
+      margin-top: 3px;
+    }
+    .ml-validation-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .ml-validation-actions button {
+      border: 1px solid #cbd3e6;
+      border-radius: 6px;
+      background: #fff;
+      color: #263553;
+      padding: 7px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .ml-validation-actions button.active {
+      background: #e8f8f0;
+      border-color: #9bd3b1;
+      color: #1e8449;
+    }
+    .ml-validation-actions button.danger.active {
+      background: #fdf2f2;
+      border-color: #efb3aa;
+      color: #c0392b;
+    }
 
     .btn-notif {
       background: rgba(255, 255, 255, 0.1);
@@ -925,6 +981,19 @@ function renderResultadosPage(lecturas, meta) {
         grid-column: span 1;
       }
 
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      .chart-card,
+      .chart-card:first-child {
+        grid-column: auto;
+      }
+      .chart-card canvas,
+      .chart-card:not(:first-child) canvas {
+        height: 170px !important;
+        max-height: 170px;
+      }
+
       .notif-menu {
         right: auto;
         left: 0;
@@ -946,6 +1015,15 @@ function renderResultadosPage(lecturas, meta) {
       .ml-methods,
       .confusion-grid {
         grid-template-columns: 1fr;
+      }
+      .ml-validation-item {
+        grid-template-columns: 1fr;
+      }
+      .ml-validation-actions {
+        justify-content: stretch;
+      }
+      .ml-validation-actions button {
+        flex: 1;
       }
       .confusion-grid > div,
       .confusion-grid > div:nth-child(3n),

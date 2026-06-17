@@ -15,6 +15,7 @@ const { evaluarAlertas, filtrarAlertasPorCooldown } = require('../services/alert
 const { sendAlertToAll } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
 const { obtenerEstadisticasLecturas } = require('../services/data.service');
+const { calcularEvaluacionModelo, normalizarIncendioReal } = require('../services/ml-evaluation.service');
 
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
@@ -299,6 +300,10 @@ const obtenerLecturasRecientes = async (req, res) => {
           riesgo: data.riesgo,
           anomalia: data.anomalia,
           prediccion_gas: data.prediccion_gas,
+          incendioReal: typeof data.incendioReal === 'boolean' ? data.incendioReal : null,
+          validadoEn: data.validadoEn && typeof data.validadoEn.toDate === 'function'
+            ? data.validadoEn.toDate().toISOString()
+            : (data.validadoEn ? new Date(data.validadoEn).toISOString() : null),
         };
 
         if (matchesReadingFilters(reading, filters)) {
@@ -398,4 +403,137 @@ const obtenerEstadisticas = async (req, res) => {
   }
 };
 
-module.exports = { guardarLectura, obtenerLecturasRecientes, obtenerEstadisticas, subscribeLecturasStream };
+function normalizarDocLectura(doc) {
+  const data = doc.data ? doc.data() : doc;
+  const fecha = data.fecha && typeof data.fecha.toDate === 'function'
+    ? data.fecha.toDate().toISOString()
+    : (data.fecha ? new Date(data.fecha).toISOString() : null);
+  const validadoEn = data.validadoEn && typeof data.validadoEn.toDate === 'function'
+    ? data.validadoEn.toDate().toISOString()
+    : (data.validadoEn ? new Date(data.validadoEn).toISOString() : null);
+
+  return {
+    id: doc.id || data.id || null,
+    llama: Number(data.llama || 0),
+    gas: Number(data.gas || 0),
+    movimiento: Number(data.movimiento || 0),
+    fecha,
+    riesgo: data.riesgo || 'normal',
+    anomalia: Boolean(data.anomalia),
+    prediccion_gas: data.prediccion_gas || 'estable',
+    incendioReal: typeof data.incendioReal === 'boolean' ? data.incendioReal : null,
+    validadoEn,
+  };
+}
+
+const obtenerEvaluacionModelo = async (req, res) => {
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 300, 20), 500);
+
+  try {
+    if (!isFirebaseConfigured || !db) {
+      throw new Error('Firebase no esta configurado');
+    }
+
+    const snapshot = await db.collection('lecturas')
+      .orderBy('fecha', 'desc')
+      .limit(limit)
+      .get();
+
+    const lecturas = snapshot.docs.map(normalizarDocLectura);
+    const evaluacion = calcularEvaluacionModelo(lecturas);
+
+    return res.status(200).json({
+      ok: true,
+      source: 'firestore',
+      evaluacion,
+      lecturas: lecturas.slice(0, 20),
+    });
+  } catch (error) {
+    logger.warn('No se pudo obtener evaluacion ML desde Firestore, usando cache temporal.', error.message);
+
+    const fallback = runtimeStore.listLecturas({
+      limit: Math.min(limit, 100),
+      before: null,
+      filters: {
+        riesgo: null,
+        movimiento: null,
+        llama: null,
+        anomalia: null,
+      },
+    });
+    const evaluacion = calcularEvaluacionModelo(fallback.lecturas);
+
+    return res.status(200).json({
+      ok: true,
+      degraded: true,
+      source: 'runtime-cache',
+      warning: 'Evaluacion calculada con cache temporal.',
+      evaluacion,
+      lecturas: fallback.lecturas.slice(0, 20),
+    });
+  }
+};
+
+const validarLecturaReal = async (req, res) => {
+  const id = req.params && req.params.id;
+  const incendioReal = normalizarIncendioReal(req.body && req.body.incendioReal);
+
+  if (!id) {
+    return res.status(400).json({ ok: false, error: 'ID de lectura requerido' });
+  }
+
+  if (incendioReal === null) {
+    return res.status(400).json({ ok: false, error: 'incendioReal debe ser true o false' });
+  }
+
+  try {
+    if (!isFirebaseConfigured || !db) {
+      throw new Error('Firebase no esta configurado');
+    }
+
+    const ref = db.collection('lecturas').doc(id);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      return res.status(404).json({ ok: false, error: 'Lectura no encontrada' });
+    }
+
+    const validadoEn = new Date();
+    await ref.set({ incendioReal, validadoEn }, { merge: true });
+    runtimeStore.validarLectura(id, incendioReal);
+
+    return res.status(200).json({
+      ok: true,
+      id,
+      incendioReal,
+      validadoEn: validadoEn.toISOString(),
+    });
+  } catch (error) {
+    logger.error('Error validando lectura real', error && error.stack ? error.stack : error);
+
+    if (isQuotaError(error)) {
+      const ok = runtimeStore.validarLectura(id, incendioReal);
+      return res.status(ok ? 200 : 404).json({
+        ok,
+        degraded: true,
+        id,
+        incendioReal,
+        warning: ok ? 'Validacion guardada en cache temporal.' : 'Lectura no encontrada en cache temporal.',
+      });
+    }
+
+    return res.status(500).json({
+      ok: false,
+      error: error && error.message ? error.message : 'No fue posible validar lectura',
+    });
+  }
+};
+
+module.exports = {
+  guardarLectura,
+  obtenerLecturasRecientes,
+  obtenerEstadisticas,
+  obtenerEvaluacionModelo,
+  validarLecturaReal,
+  subscribeLecturasStream,
+};

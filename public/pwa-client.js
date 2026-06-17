@@ -14,6 +14,10 @@
   var onlyUnreadAlerts = document.getElementById('onlyUnreadAlerts');
   var mlResultsBtn = document.getElementById('mlResultsBtn');
   var mlResultsModal = document.getElementById('mlResultsModal');
+  var mlSummaryGrid = document.getElementById('mlSummaryGrid');
+  var mlConfusionGrid = document.getElementById('mlConfusionGrid');
+  var mlValidationStatus = document.getElementById('mlValidationStatus');
+  var mlValidationList = document.getElementById('mlValidationList');
   var lastCriticalAlertId = null;
   var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
@@ -192,6 +196,11 @@
     mlResultsModal.classList.add('open');
     mlResultsModal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    refreshMlEvaluation().catch(function (error) {
+      if (mlValidationStatus) {
+        mlValidationStatus.textContent = 'No se pudo cargar la evaluacion: ' + error.message;
+      }
+    });
   }
 
   function closeMlResultsModal() {
@@ -220,6 +229,136 @@
         closeMlResultsModal();
       }
     });
+
+    mlResultsModal.addEventListener('click', function (event) {
+      var target = event.target;
+      if (!target || !target.matches || !target.matches('[data-validate-reading]')) {
+        return;
+      }
+
+      var lecturaId = target.getAttribute('data-reading-id');
+      var incendioReal = target.getAttribute('data-real-fire') === 'true';
+      target.disabled = true;
+
+      validarLecturaReal(lecturaId, incendioReal)
+        .then(refreshMlEvaluation)
+        .catch(function (error) {
+          alert('No se pudo guardar la validacion: ' + error.message);
+        })
+        .finally(function () {
+          target.disabled = false;
+        });
+    });
+  }
+
+  function formatPercent(value) {
+    return typeof value === 'number' ? Math.round(value * 1000) / 10 + '%' : 'Sin datos';
+  }
+
+  function renderMetricCard(label, value, description) {
+    return '<article>' +
+      '<span class="ml-label">' + label + '</span>' +
+      '<strong>' + formatPercent(value) + '</strong>' +
+      '<small>' + description + '</small>' +
+    '</article>';
+  }
+
+  function renderMlSummary(evaluacion) {
+    if (!mlSummaryGrid) {
+      return;
+    }
+
+    var metricas = evaluacion && evaluacion.metricas ? evaluacion.metricas : {};
+    mlSummaryGrid.innerHTML =
+      renderMetricCard('Exactitud', metricas.exactitud, 'Predicciones correctas entre las lecturas validadas.') +
+      renderMetricCard('Precision', metricas.precision, 'Alertas de incendio que fueron incendio real.') +
+      renderMetricCard('Sensibilidad', metricas.sensibilidad, 'Incendios reales que el modelo detecto.') +
+      renderMetricCard('F1-score', metricas.f1, 'Balance entre precision y sensibilidad.');
+  }
+
+  function renderConfusionMatrix(evaluacion) {
+    if (!mlConfusionGrid) {
+      return;
+    }
+
+    var matriz = evaluacion && evaluacion.matriz ? evaluacion.matriz : {};
+    mlConfusionGrid.innerHTML =
+      '<div class="corner"></div>' +
+      '<div class="axis">Real: incendio</div>' +
+      '<div class="axis">Real: normal</div>' +
+      '<div class="axis">Predijo incendio</div>' +
+      '<div class="hit"><strong>VP: ' + (matriz.verdaderosPositivos || 0) + '</strong><span>Incendios detectados correctamente.</span></div>' +
+      '<div><strong>FP: ' + (matriz.falsosPositivos || 0) + '</strong><span>Alertas cuando no era incendio.</span></div>' +
+      '<div class="axis">Predijo normal</div>' +
+      '<div><strong>FN: ' + (matriz.falsosNegativos || 0) + '</strong><span>Incendios que no fueron detectados.</span></div>' +
+      '<div class="hit"><strong>VN: ' + (matriz.verdaderosNegativos || 0) + '</strong><span>Estados normales reconocidos.</span></div>';
+  }
+
+  function renderValidationList(lecturas) {
+    if (!mlValidationList) {
+      return;
+    }
+
+    if (!Array.isArray(lecturas) || lecturas.length === 0) {
+      mlValidationList.innerHTML = '<div class="ml-note">Todavia no hay lecturas reales para validar.</div>';
+      return;
+    }
+
+    mlValidationList.innerHTML = lecturas.map(function (lectura) {
+      var fecha = lectura.fecha
+        ? new Date(lectura.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })
+        : 'Sin fecha';
+      var real = typeof lectura.incendioReal === 'boolean' ? lectura.incendioReal : null;
+      var riesgo = lectura.riesgo || 'normal';
+      var normalActive = real === false ? ' active' : '';
+      var fireActive = real === true ? ' active' : '';
+
+      return '<div class="ml-validation-item">' +
+        '<div>' +
+          '<strong>' + fecha + '</strong>' +
+          '<span>Llama: ' + (Number(lectura.llama) === 1 ? 'Si' : 'No') +
+          ' | Gas: ' + (lectura.gas || 0) +
+          ' | Movimiento: ' + (Number(lectura.movimiento) === 1 ? 'Si' : 'No') +
+          ' | Modelo: ' + riesgo + '</span>' +
+        '</div>' +
+        '<div class="ml-validation-actions">' +
+          '<button data-validate-reading data-reading-id="' + lectura.id + '" data-real-fire="false" class="' + normalActive + '">Normal real</button>' +
+          '<button data-validate-reading data-reading-id="' + lectura.id + '" data-real-fire="true" class="danger' + fireActive + '">Incendio real</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function validarLecturaReal(lecturaId, incendioReal) {
+    if (!lecturaId) {
+      throw new Error('Lectura sin ID');
+    }
+
+    await fetchJson('/api/sensores/' + encodeURIComponent(lecturaId) + '/validacion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incendioReal: incendioReal }),
+    });
+  }
+
+  async function refreshMlEvaluation() {
+    if (mlValidationStatus) {
+      mlValidationStatus.textContent = 'Cargando evaluacion...';
+    }
+
+    var data = await fetchJson('/api/sensores/ml/evaluacion?limit=300', { cache: 'no-store' });
+    var evaluacion = data.evaluacion || {};
+    renderMlSummary(evaluacion);
+    renderConfusionMatrix(evaluacion);
+    renderValidationList(data.lecturas || []);
+
+    if (mlValidationStatus) {
+      var validadas = evaluacion.totalValidadas || 0;
+      var pendientes = evaluacion.totalPendientes || 0;
+      mlValidationStatus.textContent = validadas > 0
+        ? 'Lecturas validadas: ' + validadas + '. Pendientes en la muestra: ' + pendientes + '.'
+        : 'Sin lecturas validadas. Marca algunas lecturas reales para calcular metricas.';
+    }
   }
 
   function restoreAlertFilterState() {
@@ -468,7 +607,8 @@
       var data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Error cargando lecturas');
 
-      var lastReading = data && data.length > 0 ? data[0] : null;
+      var lecturas = Array.isArray(data) ? data : (data.lecturas || []);
+      var lastReading = lecturas.length > 0 ? lecturas[0] : null;
       if (lastReading) {
         var cardLlamaValue = document.getElementById('cardLlamaValue');
         var cardGasValue = document.getElementById('cardGasValue');
@@ -477,10 +617,10 @@
         var interpretationBlock = document.getElementById('interpretationBlock');
         var lastUpdatedTime = document.getElementById('lastUpdatedTime');
 
-        if (cardLlamaValue) cardLlamaValue.textContent = (lastReading.llama || 0) + '';
-        if (cardGasValue) cardGasValue.textContent = (lastReading.gas || 0) + ' ppm';
-        if (cardMovimientoValue) cardMovimientoValue.textContent = (lastReading.movimiento || 0) + '';
-        if (cardCountValue) cardCountValue.textContent = (data.length || 0) + '';
+        if (cardLlamaValue) cardLlamaValue.textContent = Number(lastReading.llama) === 1 ? 'Si' : 'No';
+        if (cardGasValue) cardGasValue.textContent = String(lastReading.gas || 0);
+        if (cardMovimientoValue) cardMovimientoValue.textContent = Number(lastReading.movimiento) === 1 ? 'Si' : 'No';
+        if (cardCountValue) cardCountValue.textContent = (lecturas.length || 0) + '';
         if (interpretationBlock && lastReading.riesgo) {
           interpretationBlock.textContent = interpretarEstado(lastReading.riesgo);
         }
@@ -490,11 +630,24 @@
         }
       }
 
-      var labels = data.map(function (r) { return new Date(r.timestamp).toLocaleTimeString('es-ES'); }).reverse();
-      var gasValues = data.map(function (r) { return r.gas || 0; }).reverse();
-      var riesgoValues = data.map(function (r) { return r.riesgo ? (r.riesgo.includes('ALTO') ? 3 : r.riesgo.includes('MEDIO') ? 2 : 1) : 1; }).reverse();
+      var labels = lecturas.map(function (r) {
+        return new Date(r.fecha || r.timestamp || Date.now()).toLocaleTimeString('es-MX', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'America/Mexico_City',
+        });
+      }).reverse();
+      var gasValues = lecturas.map(function (r) { return r.gas || 0; }).reverse();
+      var riesgoValues = lecturas.map(function (r) {
+        return String(r.riesgo || 'normal').toLowerCase();
+      }).reverse();
+      var fireValues = lecturas.map(function (r) { return Number(r.llama) === 1 ? 1 : 0; }).reverse();
+      var movementValues = lecturas.map(function (r) { return Number(r.movimiento) === 1 ? 1 : 0; }).reverse();
 
-      if (typeof window.updateGasChart === 'function') {
+      if (typeof window.updateDashboardCharts === 'function') {
+        window.updateDashboardCharts(labels, gasValues, riesgoValues, fireValues, movementValues);
+      } else if (typeof window.updateGasChart === 'function') {
         window.updateGasChart(labels, gasValues, riesgoValues);
       }
       console.debug('[pwa-client] refreshDashboard: actualizado OK');

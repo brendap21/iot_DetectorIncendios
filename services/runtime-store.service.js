@@ -35,6 +35,8 @@ function saveLectura(lectura) {
     riesgo: lectura.riesgo || 'normal',
     anomalia: Boolean(lectura.anomalia),
     prediccion_gas: lectura.prediccion_gas || 'estable',
+    incendioReal: typeof lectura.incendioReal === 'boolean' ? lectura.incendioReal : null,
+    validadoEn: toIso(lectura.validadoEn) || null,
   };
 
   pushBounded(state.lecturas, copy, MAX_LECTURAS);
@@ -114,10 +116,19 @@ function markAlertaLeida(id) {
   return true;
 }
 
+function validarLectura(id, incendioReal) {
+  const idx = state.lecturas.findIndex((l) => l.id === id);
+  if (idx < 0) return false;
+  state.lecturas[idx].incendioReal = incendioReal;
+  state.lecturas[idx].validadoEn = new Date().toISOString();
+  return true;
+}
+
 module.exports = {
   saveLectura,
   saveAlerta,
   listLecturas,
   listAlertas,
   markAlertaLeida,
+  validarLectura,
 };
