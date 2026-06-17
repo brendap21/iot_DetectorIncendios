@@ -92,6 +92,7 @@ function loadServiceAccount() {
 
 let db = null;
 let firebaseInitError = null;
+let firebaseReady = false;
 
 const serviceAccount = loadServiceAccount();
 
@@ -103,7 +104,14 @@ logger.info('Firebase credential sources available', {
   hasGoogleAppCreds: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 });
 
-if (serviceAccount) {
+// Initialize Firebase asynchronously in background (don't block server startup)
+async function initializeFirebaseAsync() {
+  if (!serviceAccount) {
+    firebaseInitError = new Error('No se encontraron credenciales de Firebase. Define FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY, o configura GOOGLE_APPLICATION_CREDENTIALS.');
+    logger.warn(firebaseInitError.message);
+    return;
+  }
+
   try {
     logger.info('Initializing Firebase Admin SDK');
     
@@ -135,15 +143,25 @@ if (serviceAccount) {
     }
 
     db = admin.firestore();
+    firebaseReady = true;
     logger.info('Firebase conectado correctamente');
   } catch (err) {
     firebaseInitError = err;
     logger.error('Error initializing Firebase:', err && err.stack ? err.stack : err);
   }
-} else {
-  firebaseInitError = new Error('No se encontraron credenciales de Firebase. Define FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY, o configura GOOGLE_APPLICATION_CREDENTIALS.');
-  logger.warn(firebaseInitError.message);
 }
+
+// Start Firebase initialization in background (non-blocking)
+initializeFirebaseAsync().catch((err) => {
+  logger.error('Unexpected error in Firebase background init:', err);
+});
+
+// Give Firebase a max of 10 seconds to initialize, then proceed anyway
+setTimeout(() => {
+  if (!firebaseReady) {
+    logger.warn('Firebase initialization timeout (10s), proceeding with degraded mode');
+  }
+}, 10000);
 
 module.exports = {
   db,

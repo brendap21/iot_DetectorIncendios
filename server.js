@@ -8,10 +8,15 @@ const PORT = process.env.PORT || 3000;
 // Log environment important bits (avoid secrets)
 logger.info('Starting server', { port: PORT, node_env: process.env.NODE_ENV || 'development' });
 
+// Start listening IMMEDIATELY (do not wait for Firebase)
 const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info('🔥 INICIANDO SERVIDOR...');
   logger.info('🚀 LISTO PARA ESCUCHAR', `Servidor corriendo en puerto ${PORT}`);
 });
+
+// Set a 30-second timeout to prevent SIGTERM on startup
+server.keepAliveTimeout = 30000;
+server.headersTimeout = 35000;
 
 // Catch errors during startup
 server.on('error', (err) => {
