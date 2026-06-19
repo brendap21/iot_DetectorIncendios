@@ -957,7 +957,6 @@ function renderResultadosPage(lecturas, meta) {
     }
     footer a { color: var(--primary); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
-  </style>
 
     /* ---- header ---- */
     header {
@@ -1095,21 +1094,6 @@ function renderResultadosPage(lecturas, meta) {
       margin: -4px 0 12px;
       line-height: 1.45;
     }
-    .section-toggle-btn {
-      display: none;
-      border: 1px solid #d7deef;
-      border-radius: 8px;
-      background: #f6f9ff;
-      color: #2b3a62;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 8px 10px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      width: 100%;
-      text-align: left;
-    }
-
     /* ---- section titles ---- */
         h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
           letter-spacing: 0.08em; color: #555; margin: 4px 0 12px; }
@@ -1829,13 +1813,6 @@ function renderResultadosPage(lecturas, meta) {
       .section {
         padding: 12px;
       }
-      .section-toggle-btn {
-        display: block;
-      }
-      .section.collapsed .section-content {
-        display: none;
-      }
-
       .cards {
         grid-template-columns: 1fr;
       }
