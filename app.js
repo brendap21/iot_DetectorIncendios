@@ -300,6 +300,7 @@ function renderResultadosPage(lecturas, meta) {
   <meta name="theme-color" content="#1a1a2e" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
+  <link rel="stylesheet" href="/notification-history.css" />
   <title>Monitor IoT - Detector de Incendios</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1907,6 +1908,7 @@ function renderResultadosPage(lecturas, meta) {
       <a class="section-link" href="#sec-resumen">Resumen</a>
       <a class="section-link" href="#sec-control">Control</a>
       <a class="section-link" href="#sec-alertas">Alertas</a>
+      <a class="section-link" href="#sec-notificaciones">Notificaciones</a>
       <a class="section-link" href="#sec-grafica">Grafica</a>
       <a class="section-link" href="#sec-historial">Historial</a>
     </nav>
@@ -2004,6 +2006,40 @@ function renderResultadosPage(lecturas, meta) {
         <li><strong>Sin alertas nuevas</strong><div class="meta">Activa notificaciones para recibir eventos en tu celular.</div></li>
       </ul>
       <div class="alerts-help">Consejo: activa notificaciones para recibir aviso inmediato cuando el modelo detecte riesgo alto o probabilidad elevada de incendio.</div>
+    </div>
+    </section>
+
+    <section id="sec-notificaciones" class="section">
+    <h2>Historial de notificaciones</h2>
+    <p class="section-hint">Aqui ves todas las notificaciones enviadas a tu dispositivo. Cada notificacion muestra el estado de entrega, los sensores que la generaron y la opcion de marcarla como leida.</p>
+    
+    <div id="notificationHistoryContainer">
+      <div class="notif-controls">
+        <select id="notifSeverityFilter" class="filter" aria-label="Filtrar por severidad">
+          <option value="all">Severidad: todas</option>
+          <option value="critical">🔴 Críticas</option>
+          <option value="high">🟠 Altas</option>
+          <option value="medium">🟡 Medias</option>
+          <option value="low">🟢 Bajas</option>
+        </select>
+        <select id="notifStatusFilter" class="filter" aria-label="Filtrar por estado">
+          <option value="all">Estado: todos</option>
+          <option value="success">✅ Exitosas</option>
+          <option value="failed">❌ Fallidas</option>
+          <option value="partial">⚠️ Parciales</option>
+        </select>
+        <label class="filter-check" for="notifOnlyUnread">
+          <input id="notifOnlyUnread" type="checkbox" />
+          Solo no leídas
+        </label>
+        <button id="notificationRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+        <button id="notificationClearBtn" class="btn btn-secondary" type="button">Limpiar historial</button>
+      </div>
+
+      <div id="notificationResumenStats"></div>
+
+      <div id="notificationHistoryStatus"></div>
+      <div id="notificationHistoryList"></div>
     </div>
     </section>
 
@@ -2116,6 +2152,7 @@ function renderResultadosPage(lecturas, meta) {
   <script src="/gas-chart.js"></script>
   <script src="/pwa-client.js"></script>
   <script src="/history-view.js"></script>
+  <script src="/notification-history.js"></script>
 </body>
 </html>`;
 }

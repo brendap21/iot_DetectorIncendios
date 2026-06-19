@@ -166,6 +166,17 @@ const guardarLectura = async (req, res) => {
         await db.collection('alertas').add(alertaDoc);
         runtimeStore.saveAlerta(alertaDoc);
 
+        const metadata = {
+          lecturaId: doc.id,
+          tipo: alerta.tipo,
+          severidad: alerta.severidad,
+          sensorGas: gas,
+          sensorLlama: llama,
+          sensorMovimiento: movimiento,
+          riesgoNivel: riesgo,
+          anomaliaDetectada: anomalia,
+        };
+
         await sendAlertToAll({
           title: alerta.titulo,
           body: alerta.mensaje,
@@ -183,7 +194,7 @@ const guardarLectura = async (req, res) => {
             movimiento,
           },
           url: '/resultados',
-        });
+        }, metadata);
       }
     }
 

@@ -7,6 +7,9 @@ const {
   hasVapidKeys,
   saveSubscription,
   removeSubscription,
+  getNotificationHistory,
+  getNotificationStats,
+  markNotificationAsRead,
 } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
 const {
@@ -209,10 +212,94 @@ const marcarAlertaLeida = async (req, res) => {
   }
 };
 
+const obtenerHistorialNotificaciones = async (req, res) => {
+  if (!isFirebaseConfigured || !db) {
+    return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
+  }
+
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 30, 1), 200);
+    const severity = req.query.severity || null;
+    const status = req.query.status || null; // 'success', 'failed', 'partial'
+    const onlyUnread = req.query.onlyUnread === 'true';
+
+    const notifications = await getNotificationHistory({
+      limit,
+      severity: severity !== 'all' ? severity : null,
+      status,
+      onlyUnread,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      count: notifications.length,
+      limit,
+      filters: { severity, status, onlyUnread },
+      notifications,
+    });
+  } catch (error) {
+    logger.error('Error obteniendo historial de notificaciones', error && error.stack ? error.stack : error);
+    return res.status(500).json({ ok: false, error: 'Error obteniendo historial' });
+  }
+};
+
+const obtenerResumenNotificaciones = async (req, res) => {
+  if (!isFirebaseConfigured || !db) {
+    return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
+  }
+
+  try {
+    const hours = Math.min(Math.max(Number.parseInt(req.query.hours, 10) || 24, 1), 720);
+
+    const stats = await getNotificationStats(hours);
+
+    if (!stats) {
+      return res.status(500).json({ ok: false, error: 'Error calculando estadisticas' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      hours,
+      stats,
+    });
+  } catch (error) {
+    logger.error('Error calculando resumen de notificaciones', error && error.stack ? error.stack : error);
+    return res.status(500).json({ ok: false, error: 'Error calculando estadisticas' });
+  }
+};
+
+const marcarNotificacionLeida = async (req, res) => {
+  if (!isFirebaseConfigured || !db) {
+    return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
+  }
+
+  try {
+    const notificationId = req.params && req.params.id;
+
+    if (!notificationId) {
+      return res.status(400).json({ ok: false, error: 'ID de notificacion requerido' });
+    }
+
+    const result = await markNotificationAsRead(notificationId);
+
+    if (!result.ok) {
+      return res.status(500).json({ ok: false, error: result.error || 'Error marcando notificacion' });
+    }
+
+    return res.status(200).json({ ok: true, id: notificationId, leida: true });
+  } catch (error) {
+    logger.error('Error marcando notificacion como leida', error && error.stack ? error.stack : error);
+    return res.status(500).json({ ok: false, error: 'Error actualizando notificacion' });
+  }
+};
+
 module.exports = {
   suscribirNotificaciones,
   desuscribirNotificaciones,
   obtenerPublicKey,
   obtenerAlertasRecientes,
   marcarAlertaLeida,
+  obtenerHistorialNotificaciones,
+  obtenerResumenNotificaciones,
+  marcarNotificacionLeida,
 };
