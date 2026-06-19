@@ -696,6 +696,135 @@
     return value.toFixed(1) + '%';
   }
 
+  function metricNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+
+  function percentWidth(value) {
+    return Math.max(0, Math.min(100, metricNumber(value)));
+  }
+
+  function renderMetricBars(metrics) {
+    var items = [
+      { label: 'Exactitud', value: metrics && metrics.accuracy },
+      { label: 'Precision', value: metrics && metrics.precision },
+      { label: 'Sensibilidad', value: metrics && (typeof metrics.sensibilidad === 'number' ? metrics.sensibilidad : metrics.recall) },
+      { label: 'F1-Score', value: metrics && metrics.f1 },
+    ];
+
+    var html = '<div class="ml-visual-card"><div class="ml-visual-title">Grafica de metricas</div><div class="ml-bars">';
+    items.forEach(function (item) {
+      var width = percentWidth(item.value);
+      html += '<div class="ml-bar-row">' +
+        '<span>' + item.label + '</span>' +
+        '<div class="ml-bar-track"><div class="ml-bar-fill" style="width: ' + width + '%;"></div></div>' +
+        '<strong>' + formatMetricPercentage(item.value) + '</strong>' +
+      '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderPercentBars(title, items) {
+    var html = '<div class="ml-visual-card"><div class="ml-visual-title">' + title + '</div><div class="ml-bars">';
+    items.forEach(function (item) {
+      var width = percentWidth(item.value);
+      html += '<div class="ml-bar-row">' +
+        '<span>' + item.label + '</span>' +
+        '<div class="ml-bar-track"><div class="ml-bar-fill ' + (item.className || '') + '" style="width: ' + width + '%;"></div></div>' +
+        '<strong>' + formatMetricPercentage(item.value) + '</strong>' +
+      '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function normalizeBinaryMatrix(matriz) {
+    matriz = matriz || {};
+    return {
+      vp: matriz.vp || matriz.verdaderosPositivos || 0,
+      vn: matriz.vn || matriz.verdaderosNegativos || 0,
+      fp: matriz.fp || matriz.falsosPositivos || 0,
+      fn: matriz.fn || matriz.falsosNegativos || 0,
+    };
+  }
+
+  function renderBinaryConfusionMatrix(title, matriz) {
+    var m = normalizeBinaryMatrix(matriz);
+    return '<div class="ml-visual-card">' +
+      '<div class="ml-visual-title">' + title + '</div>' +
+      '<div class="ml-confusion ml-confusion--binary">' +
+        '<div class="ml-confusion-corner"></div>' +
+        '<div class="ml-confusion-axis">Real: incendio</div>' +
+        '<div class="ml-confusion-axis">Real: normal</div>' +
+        '<div class="ml-confusion-axis">Predijo incendio</div>' +
+        '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>VP</span><strong>' + m.vp + '</strong></div>' +
+        '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>FP</span><strong>' + m.fp + '</strong></div>' +
+        '<div class="ml-confusion-axis">Predijo normal</div>' +
+        '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>FN</span><strong>' + m.fn + '</strong></div>' +
+        '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>VN</span><strong>' + m.vn + '</strong></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderBaselineMatrix(matrizConfusion) {
+    var matrix = matrizConfusion && Array.isArray(matrizConfusion.matriz) ? matrizConfusion.matriz : null;
+    if (!matrix) {
+      return renderBinaryConfusionMatrix('Matriz de confusion', matrizConfusion);
+    }
+
+    var labels = ['Normal', 'Medio', 'Alto'];
+    var html = '<div class="ml-visual-card"><div class="ml-visual-title">Matriz de confusion del entrenamiento</div>';
+    html += '<div class="ml-confusion ml-confusion--multi"><div class="ml-confusion-corner"></div>';
+    labels.forEach(function (label) {
+      html += '<div class="ml-confusion-axis">Real: ' + label + '</div>';
+    });
+    matrix.forEach(function (row, rowIndex) {
+      html += '<div class="ml-confusion-axis">Predijo ' + labels[rowIndex] + '</div>';
+      labels.forEach(function (_label, colIndex) {
+        var value = Number(row && row[colIndex]) || 0;
+        var hitClass = rowIndex === colIndex ? ' ml-confusion-cell--hit' : ' ml-confusion-cell--miss';
+        html += '<div class="ml-confusion-cell' + hitClass + '"><span>' + labels[rowIndex] + ' / ' + labels[colIndex] + '</span><strong>' + value + '</strong></div>';
+      });
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderCountBars(title, items) {
+    var maxValue = items.reduce(function (max, item) {
+      return Math.max(max, Number(item.value) || 0);
+    }, 0) || 1;
+
+    var html = '<div class="ml-visual-card"><div class="ml-visual-title">' + title + '</div><div class="ml-bars">';
+    items.forEach(function (item) {
+      var value = Number(item.value) || 0;
+      var width = Math.max(4, Math.round((value / maxValue) * 100));
+      html += '<div class="ml-bar-row">' +
+        '<span>' + item.label + '</span>' +
+        '<div class="ml-bar-track"><div class="ml-bar-fill ' + (item.className || '') + '" style="width: ' + width + '%;"></div></div>' +
+        '<strong>' + value + '</strong>' +
+      '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderRealValidationMatrix(real) {
+    var correctas = Number(real && real.correctas) || 0;
+    var incorrectas = Number(real && real.incorrectas) || 0;
+    var pendientes = Math.max(0, (Number(real && real.totalConfirmaciones) || 0) - correctas - incorrectas);
+
+    return '<div class="ml-visual-card">' +
+      '<div class="ml-visual-title">Matriz de confirmaciones reales</div>' +
+      '<div class="ml-confusion ml-confusion--real">' +
+        '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>Correctas</span><strong>' + correctas + '</strong></div>' +
+        '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>Incorrectas</span><strong>' + incorrectas + '</strong></div>' +
+        '<div class="ml-confusion-cell"><span>Sin clasificar</span><strong>' + pendientes + '</strong></div>' +
+      '</div>' +
+    '</div>';
+  }
+
   function renderMetricCard(label, value, description) {
     return '<article>' +
       '<span class="ml-label">' + label + '</span>' +
@@ -880,6 +1009,17 @@
     }
     html += '</p>';
     html += '</div>';
+
+    html += '<div class="ml-visual-grid">';
+    html += renderMetricBars(baseline);
+    if (baseline.matrizConfusion) {
+      html += renderBaselineMatrix(baseline.matrizConfusion);
+      html += renderCountBars('Distribucion de resultados', [
+        { label: 'Muestras', value: baseline.totalMuestras },
+        { label: 'Incendios alto', value: baseline.incendiosDetectados, className: 'ml-bar-fill--danger' },
+      ]);
+    }
+    html += '</div>';
     
     container.innerHTML = html;
   }
@@ -923,18 +1063,16 @@
     html += '</p>';
     html += '</div>';
     
-    // Matriz de confusión
+    html += '<div class="ml-visual-grid">';
+    html += renderMetricBars(pseudo);
     if (pseudo.matrizConfusion) {
-      html += '<div class="ml-metric-card" style="grid-column: 1 / -1;">';
-      html += '<div class="ml-metric-label">Matriz de Confusión</div>';
-      var m = pseudo.matrizConfusion;
-      html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;">';
-      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">VP<br><strong>' + (m.vp || 0) + '</strong></div>';
-      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">FP<br><strong>' + (m.fp || 0) + '</strong></div>';
-      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">FN<br><strong>' + (m.fn || 0) + '</strong></div>';
-      html += '</div>';
-      html += '</div>';
+      html += renderBinaryConfusionMatrix('Matriz de confusion en tiempo real', pseudo.matrizConfusion);
+      html += renderCountBars('Lecturas evaluadas', [
+        { label: 'Total', value: pseudo.totalLecturas },
+        { label: 'Incendios', value: pseudo.totalIncendios, className: 'ml-bar-fill--danger' },
+      ]);
     }
+    html += '</div>';
     
     container.innerHTML = html;
   }
@@ -951,6 +1089,15 @@
       html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
       html += real.message || 'Usa el dashboard para confirmar manualmente si las predicciones fueron correctas o incorrectas.';
       html += '</p>';
+      html += '</div>';
+
+      html += '<div class="ml-visual-grid">';
+      html += renderRealValidationMatrix(real);
+      html += renderCountBars('Confirmaciones del usuario', [
+        { label: 'Correctas', value: real.correctas, className: 'ml-bar-fill--ok' },
+        { label: 'Incorrectas', value: real.incorrectas, className: 'ml-bar-fill--danger' },
+        { label: 'Total', value: real.totalConfirmaciones },
+      ]);
       html += '</div>';
     } else {
       html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
@@ -988,6 +1135,18 @@
         html += '</p>';
         html += '</div>';
       }
+
+      html += '<div class="ml-visual-grid">';
+      html += renderPercentBars('Grafica de exactitud real', [
+        { label: 'Exactitud real', value: real.accuracy, className: 'ml-bar-fill--ok' },
+      ]);
+      html += renderRealValidationMatrix(real);
+      html += renderCountBars('Confirmaciones del usuario', [
+        { label: 'Correctas', value: real.correctas, className: 'ml-bar-fill--ok' },
+        { label: 'Incorrectas', value: real.incorrectas, className: 'ml-bar-fill--danger' },
+        { label: 'Total', value: real.totalConfirmaciones },
+      ]);
+      html += '</div>';
     }
     
     html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
@@ -1534,3 +1693,4 @@
     console.error('Error inicializando cliente PWA:', error);
   });
 }());
+

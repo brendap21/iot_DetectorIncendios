@@ -1007,6 +1007,117 @@ function renderResultadosPage(lecturas, meta) {
       margin-top: 8px;
       font-style: italic;
     }
+    .ml-visual-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .ml-visual-card {
+      background: #fff;
+      border: 1px solid #d4dce8;
+      border-radius: 8px;
+      padding: 14px;
+      min-width: 0;
+    }
+    .ml-visual-title {
+      font-size: 12px;
+      color: #1f2d47;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .ml-bars {
+      display: grid;
+      gap: 10px;
+    }
+    .ml-bar-row {
+      display: grid;
+      grid-template-columns: minmax(88px, 0.9fr) minmax(120px, 2fr) 56px;
+      gap: 8px;
+      align-items: center;
+      color: #34495e;
+      font-size: 12px;
+    }
+    .ml-bar-row strong {
+      text-align: right;
+      color: #1a1a2e;
+      font-size: 12px;
+    }
+    .ml-bar-track {
+      height: 10px;
+      background: #edf2f7;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .ml-bar-fill {
+      height: 100%;
+      min-width: 3px;
+      background: #1e5dd2;
+      border-radius: 999px;
+    }
+    .ml-bar-fill--ok {
+      background: #2ecc71;
+    }
+    .ml-bar-fill--danger {
+      background: #e74c3c;
+    }
+    .ml-confusion {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ml-confusion--binary {
+      grid-template-columns: 0.9fr repeat(2, 1fr);
+    }
+    .ml-confusion--multi {
+      grid-template-columns: 0.9fr repeat(3, 1fr);
+    }
+    .ml-confusion--real {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .ml-confusion-axis,
+    .ml-confusion-corner {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #556b7f;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .ml-confusion-cell {
+      min-height: 58px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 4px;
+      background: #f5f7fa;
+      border: 1px solid #dce4ef;
+      border-radius: 6px;
+      color: #1f2d47;
+      text-align: center;
+    }
+    .ml-confusion-cell span {
+      font-size: 10px;
+      color: #556b7f;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .ml-confusion-cell strong {
+      font-size: 22px;
+      line-height: 1;
+    }
+    .ml-confusion-cell--hit {
+      background: #eaf8ef;
+      border-color: #bce7c9;
+    }
+    .ml-confusion-cell--miss {
+      background: #fff1f0;
+      border-color: #f5c4be;
+    }
 
 
     @media (max-width: 800px) {
