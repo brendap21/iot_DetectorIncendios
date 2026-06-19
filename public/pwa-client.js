@@ -754,6 +754,42 @@
     }).join('');
   }
 
+  function renderRealValidationReport(reporteValidacion) {
+    if (!reporteValidacion) {
+      return;
+    }
+
+    var baseline = reporteValidacion.baseline;
+    var realValidation = reporteValidacion.realValidation || {};
+    var hasConfirmations = realValidation.totalConfirmaciones && realValidation.totalConfirmaciones > 0;
+
+    var html = '<article class="ml-validation-report">' +
+      '<h3>Validación en Tiempo Real</h3>';
+
+    if (!hasConfirmations) {
+      html += '<div class="ml-note"><strong>Sin datos de validación real aún.</strong> ' +
+        'Marca predicciones como correctas/incorrectas en el UI para construir validación real.</div>';
+    } else {
+      html += '<div class="ml-validation-metrics">' +
+        '<div class="metric"><strong>Confirmaciones:</strong> ' + realValidation.totalConfirmaciones + '</div>' +
+        '<div class="metric"><strong>Correctas:</strong> ' + realValidation.correctas + '</div>' +
+        '<div class="metric"><strong>Incorrectas:</strong> ' + realValidation.incorrectas + '</div>' +
+        '<div class="metric metric-accuracy"><strong>Precisión Real:</strong> ' + formatPercent(realValidation.precisionReal / 100) + '</div>';
+
+      if (baseline) {
+        html += '<div class="metric"><strong>Baseline (entrenamiento):</strong> ' + formatPercent(baseline.accuracy / 100) + '</div>' +
+          '<div class="metric ' + (realValidation.degradacion < -0.05 ? 'metric-danger' : realValidation.degradacion < 0 ? 'metric-warning' : 'metric-ok') + '">' +
+          '<strong>Degradación:</strong> ' + (realValidation.degradacion > 0 ? '+' : '') + formatPercent(realValidation.degradacion / 100) + '</div>' +
+          '<div class="metric"><strong>Estado:</strong> ' + realValidation.estado + '</div>';
+      }
+
+      html += '</div>';
+    }
+
+    html += '</article>';
+    return html;
+  }
+
   async function refreshMlEvaluation() {
     if (mlValidationStatus) {
       mlValidationStatus.textContent = 'Cargando evaluacion...';
@@ -761,9 +797,17 @@
 
     var data = await fetchJson('/api/sensores/ml/evaluacion?limit=300', { cache: 'no-store' });
     var evaluacion = data.evaluacion || {};
+    var reporteValidacion = data.reporteValidacion || null;
+
     renderMlSummary(evaluacion);
     renderConfusionMatrix(evaluacion);
     renderValidationList(data.lecturas || []);
+
+    // Append real validation report if available
+    if (mlValidationList && reporteValidacion) {
+      var reportHTML = renderRealValidationReport(reporteValidacion);
+      mlValidationList.innerHTML += reportHTML;
+    }
 
     if (mlValidationStatus) {
       var evaluadas = evaluacion.totalEvaluadas || 0;

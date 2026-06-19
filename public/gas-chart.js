@@ -83,22 +83,64 @@
     });
   }
 
+  function detectarCambios(valores) {
+    var cambios = [];
+    for (var i = 1; i < valores.length; i++) {
+      if (valores[i] !== valores[i - 1]) {
+        cambios.push(i);
+      }
+    }
+    return cambios;
+  }
+
   function buildBinaryChart(canvas, labels, values, labelText, color) {
+    var cambios = detectarCambios(values);
+    
+    // Dataset principal
+    var mainDataset = {
+      label: labelText,
+      data: values,
+      backgroundColor: values.map(function (value) {
+        return value === 1 ? color : '#dbe2ef';
+      }),
+      borderColor: values.map(function (value) {
+        return value === 1 ? color : '#dbe2ef';
+      }),
+      borderWidth: 1,
+      order: 2,
+    };
+
+    // Dataset de marcadores de cambio (puntos grandes en transiciones)
+    var markerData = new Array(values.length).fill(null);
+    cambios.forEach(function (idx) {
+      markerData[idx] = 1; // Marcar índice de cambio
+    });
+
+    var markerDataset = {
+      label: labelText + ' (cambio)',
+      data: markerData,
+      type: 'scatter',
+      pointRadius: 8,
+      pointBackgroundColor: '#ffc107',
+      pointBorderColor: '#ff6b6b',
+      pointBorderWidth: 2.5,
+      order: 1,
+      showLine: false,
+      tooltip: {
+        enabled: true,
+      },
+    };
+
+    var datasets = [mainDataset];
+    if (cambios.length > 0) {
+      datasets.unshift(markerDataset);
+    }
+
     return createChart(canvas, {
       type: 'bar',
       data: {
         labels: labels,
-        datasets: [{
-          label: labelText,
-          data: values,
-          backgroundColor: values.map(function (value) {
-            return value === 1 ? color : '#dbe2ef';
-          }),
-          borderColor: values.map(function (value) {
-            return value === 1 ? color : '#dbe2ef';
-          }),
-          borderWidth: 1,
-        }],
+        datasets: datasets,
       },
       options: {
         responsive: true,
@@ -116,6 +158,9 @@
           tooltip: {
             callbacks: {
               label: function (ctx) {
+                if (ctx.dataset.label && ctx.dataset.label.includes('cambio')) {
+                  return 'CAMBIO DETECTADO';
+                }
                 return labelText + ': ' + (ctx.parsed.y === 1 ? 'Sí' : 'No');
               },
             },
@@ -148,23 +193,75 @@
   function updateChart(chart, labels, data, extra) {
     if (!chart) return;
     chart.data.labels = labels;
-    chart.data.datasets[0].data = data;
-    if (extra && chart.data.datasets[0].pointBackgroundColor) {
-      chart.data.datasets[0].pointBackgroundColor = extra;
-    }
-
+    
     if (chart.config.type === 'bar') {
       var activeColor = '#1e8449';
-      if (chart.data.datasets[0].label === 'Incendio') {
+      if (chart.data.datasets[chart.data.datasets.length - 1].label && 
+          chart.data.datasets[chart.data.datasets.length - 1].label.includes('Incendio')) {
         activeColor = '#c0392b';
       }
 
-      chart.data.datasets[0].backgroundColor = data.map(function (value) {
+      // Buscar el dataset principal (el que no es marcador)
+      var mainDatasetIdx = chart.data.datasets.length - 1;
+      for (var i = 0; i < chart.data.datasets.length; i++) {
+        if (chart.data.datasets[i].label && !chart.data.datasets[i].label.includes('cambio')) {
+          mainDatasetIdx = i;
+          break;
+        }
+      }
+
+      // Actualizar dataset principal
+      chart.data.datasets[mainDatasetIdx].data = data;
+      chart.data.datasets[mainDatasetIdx].backgroundColor = data.map(function (value) {
         return value === 1 ? activeColor : '#dbe2ef';
       });
-      chart.data.datasets[0].borderColor = data.map(function (value) {
+      chart.data.datasets[mainDatasetIdx].borderColor = data.map(function (value) {
         return value === 1 ? activeColor : '#dbe2ef';
       });
+
+      // Actualizar marcadores de cambio si existen
+      var cambios = detectarCambios(data);
+      var markerDatasetIdx = -1;
+      for (var j = 0; j < chart.data.datasets.length; j++) {
+        if (chart.data.datasets[j].label && chart.data.datasets[j].label.includes('cambio')) {
+          markerDatasetIdx = j;
+          break;
+        }
+      }
+
+      if (cambios.length > 0) {
+        var markerData = new Array(data.length).fill(null);
+        cambios.forEach(function (idx) {
+          markerData[idx] = 1;
+        });
+
+        if (markerDatasetIdx >= 0) {
+          // Dataset ya existe, actualizar
+          chart.data.datasets[markerDatasetIdx].data = markerData;
+        } else {
+          // Crear nuevo dataset de marcadores
+          chart.data.datasets.unshift({
+            label: chart.data.datasets[mainDatasetIdx].label + ' (cambio)',
+            data: markerData,
+            type: 'scatter',
+            pointRadius: 8,
+            pointBackgroundColor: '#ffc107',
+            pointBorderColor: '#ff6b6b',
+            pointBorderWidth: 2.5,
+            order: 1,
+            showLine: false,
+          });
+        }
+      } else if (markerDatasetIdx >= 0) {
+        // No hay cambios, remover dataset de marcadores
+        chart.data.datasets.splice(markerDatasetIdx, 1);
+      }
+    } else {
+      // Para gráficos de línea (gas)
+      chart.data.datasets[0].data = data;
+      if (extra && chart.data.datasets[0].pointBackgroundColor) {
+        chart.data.datasets[0].pointBackgroundColor = extra;
+      }
     }
 
     chart.update('none');

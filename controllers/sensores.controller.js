@@ -17,6 +17,10 @@ const runtimeStore = require('../services/runtime-store.service');
 const { obtenerEstadisticasLecturas } = require('../services/data.service');
 const { calcularEvaluacionModelo, esIncendioObservado } = require('../services/ml-evaluation.service');
 const {
+  savePredictionConfirmation,
+  getValidationReport,
+} = require('../services/prediction-validation.service');
+const {
   isAdafruitConfigured,
   obtenerLecturasAdafruit,
   obtenerEstadisticasAdafruit,
@@ -497,11 +501,15 @@ const obtenerEvaluacionModelo = async (req, res) => {
 
     const lecturas = snapshot.docs.map(normalizarDocLectura);
     const evaluacion = calcularEvaluacionModelo(lecturas);
+    
+    // Get real validation metrics if available
+    const reporteValidacion = getValidationReport();
 
     return res.status(200).json({
       ok: true,
       source: 'firestore',
       evaluacion,
+      reporteValidacion,
       lecturas: lecturas.slice(0, 20).map((lectura) => ({
         ...lectura,
         incendioObservado: esIncendioObservado(lectura),
@@ -521,6 +529,7 @@ const obtenerEvaluacionModelo = async (req, res) => {
       },
     });
     const evaluacion = calcularEvaluacionModelo(fallback.lecturas);
+    const reporteValidacion = getValidationReport();
 
     return res.status(200).json({
       ok: true,
@@ -528,10 +537,88 @@ const obtenerEvaluacionModelo = async (req, res) => {
       source: 'runtime-cache',
       warning: 'Evaluacion calculada con cache temporal.',
       evaluacion,
+      reporteValidacion,
       lecturas: fallback.lecturas.slice(0, 20).map((lectura) => ({
         ...lectura,
         incendioObservado: esIncendioObservado(lectura),
       })),
+    });
+  }
+};
+
+const confirmarPrediccion = async (req, res) => {
+  /**
+   * Endpoint: POST /api/sensores/validar-prediccion
+   * Body: {
+   *   lecturaId: "doc-id",
+   *   prediccion: "normal|medio|alto",
+   *   esCorrecta: true|false,
+   *   razon?: "Usuario confirmó que fue correcto/incorrecto"
+   * }
+   *
+   * Records user confirmation of whether a model prediction was accurate.
+   * This builds real-world validation data for model monitoring.
+   */
+  try {
+    const { lecturaId, prediccion, esCorrecta, razon } = req.body || {};
+
+    if (!lecturaId || typeof esCorrecta !== 'boolean' || !prediccion) {
+      return res.status(400).json({
+        ok: false,
+        error: 'lecturaId, prediccion, y esCorrecta son requeridos',
+      });
+    }
+
+    const resultado = savePredictionConfirmation({
+      lecturaId,
+      prediccion,
+      esCorrecta,
+      razon: razon || null,
+    });
+
+    if (!resultado) {
+      return res.status(500).json({
+        ok: false,
+        error: 'No se pudo guardar la confirmación',
+      });
+    }
+
+    return res.status(201).json({
+      ok: true,
+      message: 'Predicción validada correctamente',
+      lecturaId,
+    });
+  } catch (error) {
+    logger.error('Error en confirmarPrediccion', error && error.stack ? error.stack : error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Error interno al guardar validación',
+    });
+  }
+};
+
+const obtenerReporteValidacion = async (req, res) => {
+  /**
+   * Endpoint: GET /api/sensores/ml/reporte-validacion
+   *
+   * Returns comparison between:
+   * - baseline: metrics from test set during model training
+   * - realValidation: accuracy based on user confirmations in production
+   *
+   * Useful to detect model degradation in production.
+   */
+  try {
+    const reporte = getValidationReport();
+
+    return res.status(200).json({
+      ok: true,
+      reporte,
+    });
+  } catch (error) {
+    logger.error('Error en obtenerReporteValidacion', error && error.stack ? error.stack : error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Error al generar reporte de validación',
     });
   }
 };
@@ -541,5 +628,7 @@ module.exports = {
   obtenerLecturasRecientes,
   obtenerEstadisticas,
   obtenerEvaluacionModelo,
+  confirmarPrediccion,
+  obtenerReporteValidacion,
   subscribeLecturasStream,
 };
