@@ -685,6 +685,13 @@
     return typeof value === 'number' ? Math.round(value * 1000) / 10 + '%' : 'Sin datos';
   }
 
+  // Formato para valores que ya están en porcentaje (99.15)
+  function formatMetricPercentage(value) {
+    if (typeof value !== 'number') return 'Sin datos';
+    if (value === null || value === undefined) return 'Sin datos';
+    return value.toFixed(1) + '%';
+  }
+
   function renderMetricCard(label, value, description) {
     return '<article>' +
       '<span class="ml-label">' + label + '</span>' +
@@ -796,26 +803,205 @@
     }
 
     var data = await fetchJson('/api/sensores/ml/evaluacion?limit=300', { cache: 'no-store' });
-    var evaluacion = data.evaluacion || {};
-    var reporteValidacion = data.reporteValidacion || null;
-
-    renderMlSummary(evaluacion);
-    renderConfusionMatrix(evaluacion);
-    renderValidationList(data.lecturas || []);
-
-    // Append real validation report if available
-    if (mlValidationList && reporteValidacion) {
-      var reportHTML = renderRealValidationReport(reporteValidacion);
-      mlValidationList.innerHTML += reportHTML;
-    }
-
+    
+    // Renderiza las 3 pestañas
+    renderBaselineTab(data.baseline);
+    renderPseudoTab(data.pseudoEvaluacion);
+    renderRealTab(data.validacionReal);
+    
+    // Setup tabs functionality
+    setupTabsNavigation();
+    
     if (mlValidationStatus) {
-      var evaluadas = evaluacion.totalEvaluadas || 0;
-      var incendios = evaluacion.totalObservadasIncendio || 0;
-      mlValidationStatus.textContent = evaluadas > 0
-        ? 'Lecturas evaluadas: ' + evaluadas + '. Incendios observados: ' + incendios + '.'
-        : 'Sin lecturas reales suficientes para calcular metricas.';
+      mlValidationStatus.textContent = '✅ Análisis cargado exitosamente';
     }
+  }
+
+  function renderBaselineTab(baseline) {
+    var container = document.getElementById('mlBaselineContent');
+    if (!container || !baseline) return;
+
+    var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Exactitud</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(baseline.accuracy) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Precisión</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(baseline.precision) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Sensibilidad (Recall)</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(baseline.sensibilidad) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">F1-Score</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(baseline.f1) + '</div>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
+    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
+    html += '<strong>Descripción:</strong> ' + (baseline.descripcion || 'Métricas del modelo durante entrenamiento') + '<br>';
+    html += '<strong>Muestras de validación:</strong> ' + baseline.totalMuestras + '<br>';
+    html += '<strong>Incendios en test:</strong> ' + baseline.incendiosDetectados + '<br>';
+    html += '</p>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+  }
+
+  function renderPseudoTab(pseudo) {
+    var container = document.getElementById('mlPseudoContent');
+    if (!container || !pseudo) return;
+
+    var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Exactitud</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(pseudo.accuracy) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Precisión</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(pseudo.precision) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">Sensibilidad</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(pseudo.sensibilidad) + '</div>';
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card">';
+    html += '<div class="ml-metric-label">F1-Score</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(pseudo.f1) + '</div>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
+    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
+    html += '<strong>Descripción:</strong> ' + (pseudo.descripcion || 'Comparación del modelo vs heurística en tiempo real') + '<br>';
+    html += '<strong>Total lecturas evaluadas:</strong> ' + pseudo.totalLecturas + '<br>';
+    html += '<strong>Incendios observados:</strong> ' + pseudo.totalIncendios + '<br>';
+    if (pseudo.advertencia) {
+      html += '<strong>⚠️ Advertencia:</strong> ' + pseudo.advertencia + '<br>';
+    }
+    html += '</p>';
+    html += '</div>';
+    
+    // Matriz de confusión
+    if (pseudo.matrizConfusion) {
+      html += '<div class="ml-metric-card" style="grid-column: 1 / -1;">';
+      html += '<div class="ml-metric-label">Matriz de Confusión</div>';
+      var m = pseudo.matrizConfusion;
+      html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;">';
+      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">VP<br><strong>' + (m.vp || 0) + '</strong></div>';
+      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">FP<br><strong>' + (m.fp || 0) + '</strong></div>';
+      html += '<div style="text-align: center; padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 11px; color: #556b7f;">FN<br><strong>' + (m.fn || 0) + '</strong></div>';
+      html += '</div>';
+      html += '</div>';
+    }
+    
+    container.innerHTML = html;
+  }
+
+  function renderRealTab(real) {
+    var container = document.getElementById('mlRealContent');
+    if (!container || !real) return;
+
+    var html = '';
+    
+    if (real.totalConfirmaciones === 0) {
+      html += '<div class="ml-metric-card" style="background: #fff3cd; border-color: #e8a800;">';
+      html += '<div class="ml-metric-label">⚠️ Sin confirmaciones registradas</div>';
+      html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
+      html += real.message || 'Usa el dashboard para confirmar manualmente si las predicciones fueron correctas o incorrectas.';
+      html += '</p>';
+      html += '</div>';
+    } else {
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+      
+      html += '<div class="ml-metric-card">';
+      html += '<div class="ml-metric-label">Exactitud</div>';
+      html += '<div class="ml-metric-value">' + formatMetricPercentage(real.accuracy) + '</div>';
+      html += '</div>';
+      
+      html += '<div class="ml-metric-card">';
+      html += '<div class="ml-metric-label">Confirmaciones Correctas</div>';
+      html += '<div class="ml-metric-value" style="color: #2ecc71;">' + real.correctas + '</div>';
+      html += '</div>';
+      
+      html += '<div class="ml-metric-card">';
+      html += '<div class="ml-metric-label">Confirmaciones Incorrectas</div>';
+      html += '<div class="ml-metric-value" style="color: #e74c3c;">' + real.incorrectas + '</div>';
+      html += '</div>';
+      
+      html += '<div class="ml-metric-card">';
+      html += '<div class="ml-metric-label">Total Confirmaciones</div>';
+      html += '<div class="ml-metric-value">' + real.totalConfirmaciones + '</div>';
+      html += '</div>';
+      
+      html += '</div>';
+      
+      if (real.degradacion !== null && real.degradacion !== undefined) {
+        var degradationColor = real.degradacion < -5 ? '#e74c3c' : real.degradacion < 0 ? '#e8a800' : '#2ecc71';
+        var degradationIcon = real.degradacion < -5 ? '🔴' : real.degradacion < 0 ? '🟡' : '🟢';
+        
+        html += '<div class="ml-metric-card" style="background: ' + degradationColor + '20; border-color: ' + degradationColor + ';">';
+        html += '<div class="ml-metric-label">' + degradationIcon + ' Estado del Modelo</div>';
+        html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
+        html += '<strong>' + (real.estado || 'Sin estado') + '</strong><br>';
+        html += '<strong>Degradación:</strong> ' + real.degradacion.toFixed(2) + '%';
+        html += '</p>';
+        html += '</div>';
+      }
+    }
+    
+    html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
+    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
+    html += '<strong>Descripción:</strong> ' + (real.descripcion || 'Basada en confirmaciones manuales del usuario') + '<br>';
+    html += 'Marca predicciones como correctas o incorrectas desde el dashboard para construir esta validación.';
+    html += '</p>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+  }
+
+  function setupTabsNavigation() {
+    var tabBtns = document.querySelectorAll('.ml-tab-btn');
+    var tabPanels = document.querySelectorAll('.ml-tab-panel');
+    
+    tabBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tabName = btn.getAttribute('data-tab');
+        
+        // Desactiva todos los tabs
+        tabBtns.forEach(function (b) {
+          b.classList.remove('ml-tab-btn--active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        tabPanels.forEach(function (panel) {
+          panel.classList.remove('ml-tab-panel--active');
+        });
+        
+        // Activa el tab seleccionado
+        btn.classList.add('ml-tab-btn--active');
+        btn.setAttribute('aria-selected', 'true');
+        var panel = document.getElementById(tabName + '-panel');
+        if (panel) {
+          panel.classList.add('ml-tab-panel--active');
+        }
+      });
+    });
   }
 
   function restoreAlertFilterState() {

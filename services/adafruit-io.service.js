@@ -359,7 +359,7 @@ async function obtenerAlertasAdafruit(options = {}) {
 async function obtenerEvaluacionAdafruit(limit = 300) {
   /**
    * Obtiene evaluación del modelo desde datos de Adafruit.
-   * Calcula pseudo-validación y retorna con reporte de validación real.
+   * Retorna los 3 niveles de validación: Baseline, Pseudo, Real
    */
   try {
     const resultado = await obtenerLecturasAdafruit({ limit: Math.min(limit, 100) });
@@ -368,17 +368,60 @@ async function obtenerEvaluacionAdafruit(limit = 300) {
       incendioObservado: esIncendioObservado(lectura),
     }));
 
-    // Calcula pseudo-validación
-    const evaluacion = calcularEvaluacionModelo(lecturas);
+    // Calcula pseudo-validación (Nivel 2)
+    const pseudoEvaluacion = calcularEvaluacionModelo(lecturas);
 
-    // Importa servicio de validación real
-    const { getValidationReport } = require('./prediction-validation.service');
+    // Obtiene validación real y baseline (Nivel 3 y 1)
+    const { getValidationReport, loadBaseline } = require('./prediction-validation.service');
     const reporteValidacion = getValidationReport();
+    const baselineMetrics = loadBaseline();
 
     return {
       ok: true,
       source: 'adafruit-io',
-      evaluacion,
+      // Nivel 1: Baseline (métricas de entrenamiento)
+      baseline: baselineMetrics ? {
+        nivel: 'Baseline (Entrenamiento)',
+        descripcion: 'Métricas calculadas del conjunto de validación (20%) durante el entrenamiento del modelo.',
+        accuracy: parseFloat((baselineMetrics.exactitud * 100).toFixed(2)),
+        precision: parseFloat((baselineMetrics.precision * 100).toFixed(2)),
+        sensibilidad: parseFloat((baselineMetrics.sensibilidad * 100).toFixed(2)),
+        f1: parseFloat((baselineMetrics.f1 * 100).toFixed(2)),
+        totalMuestras: baselineMetrics.tamañoDataset || 'N/A',
+        incendiosDetectados: baselineMetrics.distribucionClases?.alto || 'N/A',
+      } : null,
+      // Nivel 2: Pseudo Evaluación (comparación modelo vs heurística)
+      pseudoEvaluacion: {
+        nivel: 'Pseudo-Evaluación (Tiempo Real)',
+        descripcion: 'Compara predicciones del modelo contra heurística (llama=1 OR gas>=1800) usando datos actuales de Adafruit.',
+        totalLecturas: pseudoEvaluacion.totalEvaluadas || 0,
+        totalIncendios: pseudoEvaluacion.totalObservadasIncendio || 0,
+        accuracy: parseFloat(((pseudoEvaluacion.metricas?.exactitud || 0) * 100).toFixed(2)),
+        precision: parseFloat(((pseudoEvaluacion.metricas?.precision || 0) * 100).toFixed(2)),
+        sensibilidad: parseFloat(((pseudoEvaluacion.metricas?.sensibilidad || 0) * 100).toFixed(2)),
+        f1: parseFloat(((pseudoEvaluacion.metricas?.f1 || 0) * 100).toFixed(2)),
+        advertencia: pseudoEvaluacion.advertencia,
+        matrizConfusion: pseudoEvaluacion.matriz,
+      },
+      // Nivel 3: Validación Real (confirmaciones del usuario)
+      validacionReal: reporteValidacion.realValidation ? {
+        nivel: 'Validación Real (Confirmaciones)',
+        descripcion: 'Basada en confirmaciones manuales del usuario marcando predicciones como correctas/incorrectas.',
+        totalConfirmaciones: reporteValidacion.realValidation.totalConfirmaciones || 0,
+        correctas: reporteValidacion.realValidation.correctas || 0,
+        incorrectas: reporteValidacion.realValidation.incorrectas || 0,
+        accuracy: reporteValidacion.realValidation.precisionReal || 0,
+        degradacion: reporteValidacion.realValidation.degradacion,
+        estado: reporteValidacion.realValidation.estado,
+      } : {
+        nivel: 'Validación Real (Confirmaciones)',
+        descripcion: 'Basada en confirmaciones manuales del usuario (aún sin confirmaciones registradas).',
+        totalConfirmaciones: 0,
+        correctas: 0,
+        incorrectas: 0,
+        accuracy: null,
+        message: 'No hay confirmaciones de usuario aún.',
+      },
       reporteValidacion,
       lecturas: lecturas.slice(0, 20),
     };
@@ -387,7 +430,9 @@ async function obtenerEvaluacionAdafruit(limit = 300) {
     return {
       ok: false,
       error: 'No se pudo obtener evaluación de Adafruit',
-      evaluacion: null,
+      baseline: null,
+      pseudoEvaluacion: null,
+      validacionReal: null,
       reporteValidacion: null,
       lecturas: [],
     };

@@ -213,12 +213,41 @@ function renderMlEvaluationModal() {
       <div class="ml-modal__header">
         <div>
           <p class="ml-kicker">Evaluacion con lecturas reales</p>
-          <h3 id="mlResultsTitle">Resultados de Machine Learning</h3>
+          <h3 id="mlResultsTitle">Análisis de Machine Learning - 3 Niveles de Validación</h3>
         </div>
         <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
       </div>
 
-      <div id="mlSummaryGrid" class="ml-summary-grid" aria-live="polite"></div>
+      <div class="ml-tabs">
+        <div class="ml-tabs__nav" role="tablist">
+          <button class="ml-tab-btn ml-tab-btn--active" data-tab="baseline" role="tab" aria-selected="true" aria-controls="baseline-panel">
+            📊 Baseline (Entrenamiento)
+          </button>
+          <button class="ml-tab-btn" data-tab="pseudo" role="tab" aria-selected="false" aria-controls="pseudo-panel">
+            ⚙️ Pseudo-Evaluación (Tiempo Real)
+          </button>
+          <button class="ml-tab-btn" data-tab="real" role="tab" aria-selected="false" aria-controls="real-panel">
+            ✓ Validación Real (Confirmaciones)
+          </button>
+        </div>
+
+        <div class="ml-tabs__content">
+          <!-- Tab 1: Baseline -->
+          <div id="baseline-panel" class="ml-tab-panel ml-tab-panel--active" role="tabpanel" aria-labelledby="baseline-tab">
+            <div id="mlBaselineContent"></div>
+          </div>
+
+          <!-- Tab 2: Pseudo-Evaluación -->
+          <div id="pseudo-panel" class="ml-tab-panel" role="tabpanel" aria-labelledby="pseudo-tab">
+            <div id="mlPseudoContent"></div>
+          </div>
+
+          <!-- Tab 3: Validación Real -->
+          <div id="real-panel" class="ml-tab-panel" role="tabpanel" aria-labelledby="real-tab">
+            <div id="mlRealContent"></div>
+          </div>
+        </div>
+      </div>
 
       <div class="ml-modal__body">
         <section class="ml-block">
@@ -881,7 +910,86 @@ function renderResultadosPage(lecturas, meta) {
       cursor: pointer;
     }
 
-    /* ---- mobile ---- */
+    /* ---- Tabs ---- */
+    .ml-tabs {
+      padding: 16px;
+      background: #f9fbfd;
+      border-bottom: 1px solid #d4dce8;
+    }
+    .ml-tabs__nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #d4dce8;
+      overflow-x: auto;
+      padding-bottom: 0;
+    }
+    .ml-tab-btn {
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #556b7f;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+    .ml-tab-btn:hover {
+      color: #1e5dd2;
+      border-bottom-color: #1e5dd2;
+    }
+    .ml-tab-btn--active {
+      color: #1e5dd2;
+      border-bottom-color: #1e5dd2;
+    }
+    .ml-tabs__content {
+      position: relative;
+      min-height: 200px;
+    }
+    .ml-tab-panel {
+      display: none;
+      padding: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+    .ml-tab-panel--active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* ---- Metric Cards in Tabs ---- */
+    .ml-metric-card {
+      background: #fff;
+      border: 1px solid #d4dce8;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .ml-metric-label {
+      font-size: 12px;
+      color: #556b7f;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .ml-metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .ml-metric-description {
+      font-size: 12px;
+      color: #556b7f;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+
     @media (max-width: 800px) {
       body { font-size: 14px; }
       header { padding: 10px 12px; }

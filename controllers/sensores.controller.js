@@ -500,15 +500,61 @@ const obtenerEvaluacionModelo = async (req, res) => {
       .get();
 
     const lecturas = snapshot.docs.map(normalizarDocLectura);
-    const evaluacion = calcularEvaluacionModelo(lecturas);
     
-    // Get real validation metrics if available
+    // Nivel 2: Pseudo Evaluación (comparación modelo vs heurística)
+    const pseudoEvaluacion = calcularEvaluacionModelo(lecturas);
+    
+    // Nivel 1 y 3: Baseline y Validación Real
+    const { getValidationReport, loadBaseline } = require('../services/prediction-validation.service');
     const reporteValidacion = getValidationReport();
+    const baselineMetrics = loadBaseline();
 
     return res.status(200).json({
       ok: true,
       source: 'firestore',
-      evaluacion,
+      // Nivel 1: Baseline (métricas de entrenamiento)
+      baseline: baselineMetrics ? {
+        nivel: 'Baseline (Entrenamiento)',
+        descripcion: 'Métricas calculadas del conjunto de validación (20%) durante el entrenamiento del modelo.',
+        accuracy: parseFloat((baselineMetrics.exactitud * 100).toFixed(2)),
+        precision: parseFloat((baselineMetrics.precision * 100).toFixed(2)),
+        sensibilidad: parseFloat((baselineMetrics.sensibilidad * 100).toFixed(2)),
+        f1: parseFloat((baselineMetrics.f1 * 100).toFixed(2)),
+        totalMuestras: baselineMetrics.tamañoDataset || 'N/A',
+        incendiosDetectados: baselineMetrics.distribucionClases?.alto || 'N/A',
+      } : null,
+      // Nivel 2: Pseudo Evaluación (comparación modelo vs heurística)
+      pseudoEvaluacion: {
+        nivel: 'Pseudo-Evaluación (Tiempo Real)',
+        descripcion: 'Compara predicciones del modelo contra heurística (llama=1 OR gas>=1800) usando datos actuales de Firestore.',
+        totalLecturas: pseudoEvaluacion.totalEvaluadas || 0,
+        totalIncendios: pseudoEvaluacion.totalObservadasIncendio || 0,
+        accuracy: parseFloat(((pseudoEvaluacion.metricas?.exactitud || 0) * 100).toFixed(2)),
+        precision: parseFloat(((pseudoEvaluacion.metricas?.precision || 0) * 100).toFixed(2)),
+        sensibilidad: parseFloat(((pseudoEvaluacion.metricas?.sensibilidad || 0) * 100).toFixed(2)),
+        f1: parseFloat(((pseudoEvaluacion.metricas?.f1 || 0) * 100).toFixed(2)),
+        advertencia: pseudoEvaluacion.advertencia,
+        matrizConfusion: pseudoEvaluacion.matriz,
+      },
+      // Nivel 3: Validación Real (confirmaciones del usuario)
+      validacionReal: reporteValidacion.realValidation ? {
+        nivel: 'Validación Real (Confirmaciones)',
+        descripcion: 'Basada en confirmaciones manuales del usuario marcando predicciones como correctas/incorrectas.',
+        totalConfirmaciones: reporteValidacion.realValidation.totalConfirmaciones || 0,
+        correctas: reporteValidacion.realValidation.correctas || 0,
+        incorrectas: reporteValidacion.realValidation.incorrectas || 0,
+        accuracy: reporteValidacion.realValidation.precisionReal || 0,
+        degradacion: reporteValidacion.realValidation.degradacion,
+        estado: reporteValidacion.realValidation.estado,
+      } : {
+        nivel: 'Validación Real (Confirmaciones)',
+        descripcion: 'Basada en confirmaciones manuales del usuario (aún sin confirmaciones registradas).',
+        totalConfirmaciones: 0,
+        correctas: 0,
+        incorrectas: 0,
+        accuracy: null,
+        message: 'No hay confirmaciones de usuario aún.',
+      },
       reporteValidacion,
       lecturas: lecturas.slice(0, 20).map((lectura) => ({
         ...lectura,

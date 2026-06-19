@@ -68,13 +68,13 @@ function calcularEvaluacionModelo(lecturas) {
     ? (matriz.verdaderosPositivos + matriz.verdaderosNegativos) / total 
     : 0;
 
-  // Calcula precision (si no hay predicciones positivas, retorna 0)
+  // Calcula precision (si no hay predicciones positivas, retorna 0 con advertencia)
   const totalPrediccionesPositivas = matriz.verdaderosPositivos + matriz.falsosPositivos;
   const precision = totalPrediccionesPositivas > 0
     ? matriz.verdaderosPositivos / totalPrediccionesPositivas
     : 0;
 
-  // Calcula sensibilidad (si no hay incendios reales, retorna 0)
+  // Calcula sensibilidad (si no hay incendios reales, retorna 0 con advertencia)
   const totalIncendiosReales = matriz.verdaderosPositivos + matriz.falsosNegativos;
   const sensibilidad = totalIncendiosReales > 0
     ? matriz.verdaderosPositivos / totalIncendiosReales
@@ -84,6 +84,15 @@ function calcularEvaluacionModelo(lecturas) {
   const f1 = precision + sensibilidad > 0
     ? (2 * precision * sensibilidad) / (precision + sensibilidad)
     : 0;
+
+  // Detecta si hay advertencias
+  let advertencia = null;
+  if (totalPrediccionesPositivas === 0) {
+    advertencia = 'Sin predicciones de incendio en los datos. El modelo predijo todo como "normal".';
+  }
+  if (totalIncendiosReales === 0) {
+    advertencia = (advertencia || '') + ' No hay incendios observados en los datos (según criterio: llama=1 o gas>=1800).';
+  }
 
   return {
     totalLecturas: total,
@@ -97,6 +106,7 @@ function calcularEvaluacionModelo(lecturas) {
       sensibilidad: parseFloat(sensibilidad.toFixed(4)),
       f1: parseFloat(f1.toFixed(4)),
     },
+    advertencia,
   };
 }
 
