@@ -200,7 +200,7 @@
 
     var status = document.getElementById('chartViewportLabel');
     if (status) {
-      status.textContent = labels.length + ' de ' + total + ' puntos visibles';
+      status.textContent = labels.length + ' de ' + total + ' lecturas cargadas';
     }
   }
 

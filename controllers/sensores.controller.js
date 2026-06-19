@@ -274,7 +274,8 @@ const obtenerLecturasRecientes = async (req, res) => {
     return res.status(503).json({ ok: false, error: 'No hay proveedor de datos configurado. Define AIO_USERNAME y AIO_KEY.' });
   }
 
-  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+  const defaultLimit = isAdafruitConfigured() ? 300 : 20;
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || defaultLimit, 1), 500);
   const beforeRaw = typeof req.query.before === 'string' ? req.query.before.trim() : '';
   const beforeDate = beforeRaw ? new Date(beforeRaw) : null;
   const riesgoRaw = typeof req.query.riesgo === 'string' ? req.query.riesgo.trim().toLowerCase() : '';

@@ -28,6 +28,87 @@
   var audioUnlocked = false;
   var audioCtx = null;
   var lecturasEventSource = null;
+  var DASHBOARD_CHART_LIMIT = 300;
+
+  function getSummaryPriority(lectura) {
+    if (!lectura) {
+      return {
+        cls: 'priority-normal',
+        title: 'Sin datos recientes',
+        message: 'En cuanto llegue una lectura nueva, el panel mostrara el nivel de prioridad.',
+      };
+    }
+
+    var riesgo = String(lectura.riesgo || 'normal').toLowerCase();
+    var prob = Number(lectura.probabilidad || 0);
+    var gas = Number(lectura.gas || 0);
+    var llama = Number(lectura.llama) === 1;
+
+    if (riesgo === 'alto' || llama || prob >= 0.75 || gas >= 1800) {
+      return {
+        cls: 'priority-critical',
+        title: 'Prioridad maxima: revisar de inmediato',
+        message: 'Se detecto una condicion de amenaza. Verifica el area ahora y sigue el protocolo de seguridad.',
+      };
+    }
+
+    if (riesgo === 'medio' || prob >= 0.55 || gas >= 1100) {
+      return {
+        cls: 'priority-warning',
+        title: 'Atencion requerida',
+        message: 'Hay una senal que puede evolucionar a riesgo alto. Mantente atento y valida ventilacion y entorno.',
+      };
+    }
+
+    return {
+      cls: 'priority-normal',
+      title: 'Estado estable',
+      message: 'No se detectan amenazas inmediatas. Continua el monitoreo normal.',
+    };
+  }
+
+  function applySummaryVisualState(reading) {
+    var priority = getSummaryPriority(reading);
+    var priorityClasses = ['priority-normal', 'priority-warning', 'priority-critical'];
+
+    var banner = document.getElementById('summaryPriorityBanner');
+    var bannerTitle = document.getElementById('summaryPriorityTitle');
+    var bannerMessage = document.getElementById('summaryPriorityMessage');
+
+    if (banner) {
+      banner.classList.remove.apply(banner.classList, priorityClasses);
+      banner.classList.add(priority.cls);
+    }
+    if (bannerTitle) bannerTitle.textContent = priority.title;
+    if (bannerMessage) bannerMessage.textContent = priority.message;
+
+    var statusInterpretationCard = document.getElementById('statusInterpretationCard');
+    var statusUpdatedCard = document.getElementById('statusUpdatedCard');
+
+    [statusInterpretationCard, statusUpdatedCard].forEach(function (card) {
+      if (!card) return;
+      card.classList.remove.apply(card.classList, priorityClasses);
+      card.classList.add(priority.cls);
+    });
+
+    var cardLlama = document.getElementById('cardLlama');
+    var cardGas = document.getElementById('cardGas');
+
+    if (cardLlama) {
+      cardLlama.classList.toggle('alerta', Number(reading && reading.llama) === 1);
+    }
+
+    if (cardGas) {
+      var gas = Number(reading && reading.gas || 0);
+      cardGas.classList.remove('alerta');
+      cardGas.classList.remove('warning');
+      if (gas >= 1800) {
+        cardGas.classList.add('alerta');
+      } else if (gas >= 1100) {
+        cardGas.classList.add('warning');
+      }
+    }
+  }
 
   function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -484,7 +565,8 @@
     var notified = loadNotifiedAlertIds();
     var now = Date.now();
     var nuevas = alertas.filter(function (alerta) {
-      var fechaMs = alerta && alerta.fecha ? Date.parse(alerta.fecha) : now;
+      var marcaTiempo = alerta && (alerta.lastSeen || alerta.fecha);
+      var fechaMs = marcaTiempo ? Date.parse(marcaTiempo) : now;
       var reciente = Number.isFinite(fechaMs) ? (now - fechaMs) <= 45000 : true;
       var token = buildAlertNotificationToken(alerta);
       return alerta &&
@@ -866,6 +948,95 @@
     }
   }
 
+  function setupResponsiveSections() {
+    var sections = document.querySelectorAll('main .section');
+    if (!sections || sections.length === 0) {
+      return;
+    }
+
+    sections.forEach(function (section) {
+      if (!section || section.dataset.collapsibleReady === '1') {
+        return;
+      }
+
+      var title = section.querySelector('h2');
+      var hint = section.querySelector('.section-hint');
+      var anchor = hint || title;
+      if (!anchor) {
+        return;
+      }
+
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'section-toggle-btn';
+
+      anchor.insertAdjacentElement('afterend', toggle);
+
+      var content = document.createElement('div');
+      content.className = 'section-content';
+      toggle.insertAdjacentElement('afterend', content);
+
+      while (content.nextSibling) {
+        content.appendChild(content.nextSibling);
+      }
+
+      function updateToggleText() {
+        var collapsed = section.classList.contains('collapsed');
+        toggle.textContent = collapsed ? 'Mostrar seccion' : 'Ocultar seccion';
+      }
+
+      toggle.addEventListener('click', function () {
+        section.classList.toggle('collapsed');
+        updateToggleText();
+      });
+
+      var isMobile = window.matchMedia('(max-width: 740px)').matches;
+      var keepOpen = section.id === 'sec-resumen' || section.id === 'sec-control';
+      if (isMobile && !keepOpen) {
+        section.classList.add('collapsed');
+      }
+
+      updateToggleText();
+      section.dataset.collapsibleReady = '1';
+    });
+  }
+
+  function setupSectionNavHighlight() {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.section-nav .section-link'));
+    var sections = Array.prototype.slice.call(document.querySelectorAll('main .section[id]'));
+
+    if (links.length === 0 || sections.length === 0) {
+      return;
+    }
+
+    function setActive(id) {
+      links.forEach(function (link) {
+        var target = (link.getAttribute('href') || '').replace('#', '');
+        link.classList.toggle('active', target === id);
+      });
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && entry.target && entry.target.id) {
+          setActive(entry.target.id);
+        }
+      });
+    }, {
+      root: null,
+      threshold: 0.35,
+      rootMargin: '-20% 0px -45% 0px',
+    });
+
+    sections.forEach(function (section) {
+      observer.observe(section);
+    });
+
+    if (sections[0] && sections[0].id) {
+      setActive(sections[0].id);
+    }
+  }
+
   function setupInstallPrompt() {
     if (!installBtn) {
       return;
@@ -904,7 +1075,7 @@
   async function refreshDashboard() {
     try {
       console.debug('[pwa-client] refreshDashboard: llamando a /api/sensores/ultimas');
-      var response = await fetch('/api/sensores/ultimas?limit=30', { cache: 'no-store' });
+      var response = await fetch('/api/sensores/ultimas?limit=' + DASHBOARD_CHART_LIMIT, { cache: 'no-store' });
       var data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Error cargando lecturas');
 
@@ -922,9 +1093,12 @@
         if (cardGasValue) cardGasValue.textContent = String(lastReading.gas || 0);
         if (cardMovimientoValue) cardMovimientoValue.textContent = Number(lastReading.movimiento) === 1 ? 'Detectado' : 'Sin presencia';
         if (cardCountValue) cardCountValue.textContent = (lecturas.length || 0) + '';
+        var chartHistoryCount = document.getElementById('chartHistoryCount');
+        if (chartHistoryCount) chartHistoryCount.textContent = (lecturas.length || 0) + '';
         if (interpretationBlock) {
           interpretationBlock.innerHTML = interpretarLectura(lastReading);
         }
+        applySummaryVisualState(lastReading);
         if (lastUpdatedTime) {
           var now = new Date();
           lastUpdatedTime.textContent = now.toLocaleTimeString('es-ES');
@@ -1002,6 +1176,8 @@
 
   async function init() {
     setupAudioUnlockGestures();
+    setupResponsiveSections();
+    setupSectionNavHighlight();
     setupInstallPrompt();
     setupNavbarNotifications();
     setupMlResultsModal();

@@ -170,6 +170,41 @@ function interpretarEstado(ultima) {
     </div>`;
 }
 
+function prioridadResumen(ultima) {
+  if (!ultima) {
+    return {
+      cls: 'priority-normal',
+      titulo: 'Sin datos recientes',
+      mensaje: 'En cuanto llegue una lectura nueva, el panel mostrara el nivel de prioridad.',
+    };
+  }
+
+  const prob = Number(ultima.probabilidad || 0);
+  const gas = Number(ultima.gas || 0);
+
+  if (String(ultima.riesgo || '').toLowerCase() === 'alto' || Number(ultima.llama) === 1 || prob >= 0.75 || gas >= 1800) {
+    return {
+      cls: 'priority-critical',
+      titulo: 'Prioridad maxima: revisar de inmediato',
+      mensaje: 'Se detecto una condicion de amenaza. Verifica el area ahora y sigue el protocolo de seguridad.',
+    };
+  }
+
+  if (String(ultima.riesgo || '').toLowerCase() === 'medio' || prob >= 0.55 || gas >= 1100) {
+    return {
+      cls: 'priority-warning',
+      titulo: 'Atencion requerida',
+      mensaje: 'Hay una senal que puede evolucionar a riesgo alto. Mantente atento y valida ventilacion y entorno.',
+    };
+  }
+
+  return {
+    cls: 'priority-normal',
+    titulo: 'Estado estable',
+    mensaje: 'No se detectan amenazas inmediatas. Continua el monitoreo normal.',
+  };
+}
+
 function renderMlEvaluationModal() {
   return `
   <div id="mlResultsModal" class="ml-modal" aria-hidden="true">
@@ -236,6 +271,7 @@ function renderMlEvaluationModal() {
 
 function renderResultadosPage(lecturas, meta) {
   const ultima = lecturas[0];
+  const prioridad = prioridadResumen(ultima);
 
   const rows = lecturas.map((lectura) => {
     const { cls, texto } = riesgoMeta(lectura.riesgo);
@@ -405,8 +441,19 @@ function renderResultadosPage(lecturas, meta) {
     .section-link:hover {
       background: #e9f0ff;
     }
+    .section-link.active {
+      background: #2f5fbf;
+      border-color: #2f5fbf;
+      color: #fff;
+    }
     .section {
       scroll-margin-top: 136px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-top: 14px;
     }
     .section-hint {
       font-size: 13px;
@@ -414,10 +461,24 @@ function renderResultadosPage(lecturas, meta) {
       margin: -4px 0 12px;
       line-height: 1.45;
     }
+    .section-toggle-btn {
+      display: none;
+      border: 1px solid #d7deef;
+      border-radius: 8px;
+      background: #f6f9ff;
+      color: #2b3a62;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
 
     /* ---- section titles ---- */
-    h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
-         letter-spacing: 0.08em; color: #555; margin: 28px 0 12px; }
+        h2 { font-size: 14px; font-weight: 600; text-transform: uppercase;
+          letter-spacing: 0.08em; color: #555; margin: 4px 0 12px; }
 
     /* ---- sensor cards ---- */
     .cards {
@@ -438,6 +499,8 @@ function renderResultadosPage(lecturas, meta) {
     .card .c-help  { font-size: 12px; color: #5f6780; margin-top: 8px; line-height: 1.35; }
     .card.alerta   { border-color: #e74c3c; background: #fff5f5; }
     .card.alerta .c-value { color: #c0392b; }
+    .card.warning  { border-color: #f1c40f; background: #fffdf4; }
+    .card.warning .c-value { color: #9a6b00; }
 
     .reading-legend {
       display: grid;
@@ -477,6 +540,87 @@ function renderResultadosPage(lecturas, meta) {
       flex-wrap: wrap;
     }
     .interp { font-size: 15px; color: #333; line-height: 1.6; }
+
+    .priority-banner {
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 8px 0 14px;
+      border: 1px solid #d7dfef;
+      background: #f8faff;
+      display: grid;
+      gap: 4px;
+      box-shadow: var(--shadow);
+    }
+    .priority-banner strong {
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .priority-banner span {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .priority-banner.priority-normal {
+      background: #edf8f2;
+      border-color: #b8e1c7;
+      color: #1e8449;
+    }
+    .priority-banner.priority-warning {
+      background: #fff8e9;
+      border-color: #f2d28e;
+      color: #9a6b00;
+    }
+    .priority-banner.priority-critical {
+      background: #fdeeee;
+      border-color: #efb1ae;
+      color: #b33025;
+      animation: priorityPulse 1.6s ease-in-out infinite;
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .status-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 14px;
+    }
+    .status-card.priority-normal {
+      border-color: #b8e1c7;
+      background: #f3fbf6;
+    }
+    .status-card.priority-warning {
+      border-color: #f2d28e;
+      background: #fffbf1;
+    }
+    .status-card.priority-critical {
+      border-color: #efb1ae;
+      background: #fff4f4;
+    }
+    .status-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #526083;
+      margin-bottom: 8px;
+    }
+    .status-value {
+      font-size: 21px;
+      font-weight: 800;
+      color: #253457;
+    }
+
+    @keyframes priorityPulse {
+      0% { box-shadow: 0 0 0 0 rgba(195, 57, 43, 0.26); }
+      70% { box-shadow: 0 0 0 11px rgba(195, 57, 43, 0.0); }
+      100% { box-shadow: 0 0 0 0 rgba(195, 57, 43, 0.0); }
+    }
 
     /* ---- tags ---- */
     .tag {
@@ -601,23 +745,30 @@ function renderResultadosPage(lecturas, meta) {
     }
 
     .actions {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
       gap: 10px;
-      margin-top: 14px;
+      margin-top: 8px;
     }
     .actions-row {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+      background: #f8faff;
+      border: 1px solid #d9deec;
+      border-radius: 10px;
+      padding: 10px;
     }
     .filters-row {
-      margin-top: 10px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+      background: #f8faff;
+      border: 1px solid #d9deec;
+      border-radius: 10px;
+      padding: 10px;
     }
     .filter {
       background: #fff;
@@ -1041,7 +1192,20 @@ function renderResultadosPage(lecturas, meta) {
         flex: 0 0 auto;
       }
 
+      .section {
+        padding: 12px;
+      }
+      .section-toggle-btn {
+        display: block;
+      }
+      .section.collapsed .section-content {
+        display: none;
+      }
+
       .cards {
+        grid-template-columns: 1fr;
+      }
+      .status-row {
         grid-template-columns: 1fr;
       }
       .card {
@@ -1056,6 +1220,9 @@ function renderResultadosPage(lecturas, meta) {
       .filters-row,
       .history-tools {
         width: 100%;
+      }
+      .actions {
+        grid-template-columns: 1fr;
       }
       .actions-row,
       .filters-row {
@@ -1214,6 +1381,7 @@ function renderResultadosPage(lecturas, meta) {
   <main>
     <nav class="section-nav" aria-label="Navegacion de secciones">
       <a class="section-link" href="#sec-resumen">Resumen</a>
+      <a class="section-link" href="#sec-control">Control</a>
       <a class="section-link" href="#sec-alertas">Alertas</a>
       <a class="section-link" href="#sec-grafica">Grafica</a>
       <a class="section-link" href="#sec-historial">Historial</a>
@@ -1222,26 +1390,30 @@ function renderResultadosPage(lecturas, meta) {
     <section id="sec-resumen" class="section">
     <h2>Resumen actual</h2>
     <p class="section-hint">Aqui ves el estado actual del detector con un lenguaje sencillo: que detecta cada sensor y que nivel de riesgo sugiere el analisis.</p>
+    <div id="summaryPriorityBanner" class="priority-banner ${prioridad.cls}">
+      <strong id="summaryPriorityTitle">${prioridad.titulo}</strong>
+      <span id="summaryPriorityMessage">${prioridad.mensaje}</span>
+    </div>
     <div class="cards">
-      <div class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
+      <div id="cardLlama" class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
         <div class="c-label">Sensor de llama</div>
         <div class="c-value" id="cardLlamaValue">${ultima ? (ultima.llama === 1 ? 'Detectada' : 'Sin llama') : '-'}</div>
         <div class="c-unit">KY-026</div>
         <div class="c-help">Indica si el sensor detecta una fuente de fuego.</div>
       </div>
-      <div class="card">
+      <div id="cardGas" class="card ${ultima && Number(ultima.gas) >= 1800 ? 'alerta' : (ultima && Number(ultima.gas) >= 1100 ? 'warning' : '')}">
         <div class="c-label">Concentracion de gas</div>
         <div class="c-value" id="cardGasValue">${ultima ? ultima.gas : '-'}</div>
         <div class="c-unit">ADC (0-4095)</div>
         <div class="c-help">Valores altos pueden indicar humo, combustion o fuga.</div>
       </div>
-      <div class="card">
+      <div id="cardMovimiento" class="card">
         <div class="c-label">Presencia / movimiento</div>
         <div class="c-value" id="cardMovimientoValue">${ultima ? (ultima.movimiento === 1 ? 'Detectado' : 'Sin presencia') : '-'}</div>
         <div class="c-unit">PIR</div>
         <div class="c-help">Ayuda a saber si hay actividad cerca del detector.</div>
       </div>
-      <div class="card">
+      <div id="cardCount" class="card">
         <div class="c-label">Lecturas visibles</div>
         <div class="c-value" id="cardCountValue">${meta.count}</div>
         <div class="c-unit">ultimas 30</div>
@@ -1265,18 +1437,21 @@ function renderResultadosPage(lecturas, meta) {
     </div>
 
     <div class="status-row">
-      <div class="status-card">
+      <div id="statusInterpretationCard" class="status-card ${prioridad.cls}">
         <div class="status-label">Interpretacion ML</div>
         <div id="interpretationBlock">${interpretarEstado(ultima)}</div>
       </div>
-      <div class="status-card">
+      <div id="statusUpdatedCard" class="status-card ${prioridad.cls}">
         <div class="status-label">Ultima actualizacion</div>
         <div class="status-value" id="lastUpdatedTime">${ultima ? new Date(ultima.fecha).toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City' }) : '-'}</div>
       </div>
     </div>
 
-    <h2>Interpretacion inteligente</h2>
-    <p class="section-hint">El modelo combina llama, gas y movimiento para explicar el estado actual y sugerir acciones claras.</p>
+    </section>
+
+    <section id="sec-control" class="section">
+    <h2>Centro de control</h2>
+    <p class="section-hint">Desde aqui controlas notificaciones, instalacion de la PWA y filtros rapidos para priorizar eventos importantes.</p>
     <div class="actions">
       <div class="actions-row">
         <button id="mlResultsBtn" class="btn btn-primary" type="button">Ver detalle del analisis</button>
@@ -1311,6 +1486,9 @@ function renderResultadosPage(lecturas, meta) {
     <section id="sec-grafica" class="section">
     <h2>Graficas de comportamiento</h2>
     <p class="section-hint">Explora la evolucion de cada parametro. Puedes mover la ventana, acercar/alejar y navegar en el tiempo.</p>
+    <div class="chart-data-info" style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; color: #555;">
+      <strong>Historial completo:</strong> Se muestran <span id="chartHistoryCount">${lecturas.length}</span> lecturas disponibles desde Adafruit. Las graficas se actualizan conforme a todo el historial guardado.
+    </div>
     <div class="chart-help">Tip: usa el scroll del mouse para hacer zoom horizontal y arrastra para desplazarte por la grafica.</div>
     <div class="chart-controls">
       <select id="chartWindowSize" class="filter" aria-label="Rango visible en graficas">

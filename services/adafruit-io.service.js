@@ -217,7 +217,7 @@ async function fetchFeedData({ limit = 20, before = null } = {}) {
   }
 
   const { username, key, feedKey } = getConfig();
-  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 500);
   const now = Date.now();
 
   if (
@@ -262,7 +262,7 @@ async function fetchFeedData({ limit = 20, before = null } = {}) {
 }
 
 async function obtenerLecturasAdafruit(options = {}) {
-  const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 100);
+  const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 500);
   const before = options.before || null;
   const filters = options.filters || null;
   const raw = await fetchFeedData({ limit: Math.max(limit, 20), before });
