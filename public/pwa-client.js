@@ -18,11 +18,6 @@
   var mlConfusionGrid = document.getElementById('mlConfusionGrid');
   var mlValidationStatus = document.getElementById('mlValidationStatus');
   var mlValidationList = document.getElementById('mlValidationList');
-  var mlConfirmationPanel = document.getElementById('mlConfirmationPanel');
-  var mlConfirmCorrectBtn = document.getElementById('mlConfirmCorrectBtn');
-  var mlConfirmIncorrectBtn = document.getElementById('mlConfirmIncorrectBtn');
-  var mlConfirmationMsg = document.getElementById('mlConfirmationMsg');
-  var currentReadingData = null;
   var lastCriticalAlertId = null;
   var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
@@ -757,10 +752,10 @@
         '<div class="ml-confusion-corner"></div>' +
         '<div class="ml-confusion-axis">Real: incendio</div>' +
         '<div class="ml-confusion-axis">Real: normal</div>' +
-        '<div class="ml-confusion-axis">Predijo incendio</div>' +
+        '<div class="ml-confusion-axis">Modelo: incendio</div>' +
         '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>VP</span><strong>' + m.vp + '</strong></div>' +
         '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>FP</span><strong>' + m.fp + '</strong></div>' +
-        '<div class="ml-confusion-axis">Predijo normal</div>' +
+        '<div class="ml-confusion-axis">Modelo: normal</div>' +
         '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>FN</span><strong>' + m.fn + '</strong></div>' +
         '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>VN</span><strong>' + m.vn + '</strong></div>' +
       '</div>' +
@@ -780,7 +775,7 @@
       html += '<div class="ml-confusion-axis">Real: ' + label + '</div>';
     });
     matrix.forEach(function (row, rowIndex) {
-      html += '<div class="ml-confusion-axis">Predijo ' + labels[rowIndex] + '</div>';
+      html += '<div class="ml-confusion-axis">Modelo: ' + labels[rowIndex] + '</div>';
       labels.forEach(function (_label, colIndex) {
         var value = Number(row && row[colIndex]) || 0;
         var hitClass = rowIndex === colIndex ? ' ml-confusion-cell--hit' : ' ml-confusion-cell--miss';
@@ -810,20 +805,6 @@
     return html;
   }
 
-  function renderRealValidationMatrix(real) {
-    var correctas = Number(real && real.correctas) || 0;
-    var incorrectas = Number(real && real.incorrectas) || 0;
-    var pendientes = Math.max(0, (Number(real && real.totalConfirmaciones) || 0) - correctas - incorrectas);
-
-    return '<div class="ml-visual-card">' +
-      '<div class="ml-visual-title">Matriz de confirmaciones reales</div>' +
-      '<div class="ml-confusion ml-confusion--real">' +
-        '<div class="ml-confusion-cell ml-confusion-cell--hit"><span>Correctas</span><strong>' + correctas + '</strong></div>' +
-        '<div class="ml-confusion-cell ml-confusion-cell--miss"><span>Incorrectas</span><strong>' + incorrectas + '</strong></div>' +
-        '<div class="ml-confusion-cell"><span>Sin clasificar</span><strong>' + pendientes + '</strong></div>' +
-      '</div>' +
-    '</div>';
-  }
 
   function renderMetricCard(label, value, description) {
     return '<article>' +
@@ -856,10 +837,10 @@
       '<div class="corner"></div>' +
       '<div class="axis">Real: incendio</div>' +
       '<div class="axis">Real: normal</div>' +
-      '<div class="axis">Predijo incendio</div>' +
+      '<div class="axis">Modelo: incendio</div>' +
       '<div class="hit"><strong>VP: ' + (matriz.verdaderosPositivos || 0) + '</strong><span>Incendios detectados correctamente.</span></div>' +
       '<div><strong>FP: ' + (matriz.falsosPositivos || 0) + '</strong><span>Alertas cuando no era incendio.</span></div>' +
-      '<div class="axis">Predijo normal</div>' +
+      '<div class="axis">Modelo: normal</div>' +
       '<div><strong>FN: ' + (matriz.falsosNegativos || 0) + '</strong><span>Incendios que no fueron detectados.</span></div>' +
       '<div class="hit"><strong>VN: ' + (matriz.verdaderosNegativos || 0) + '</strong><span>Estados normales reconocidos.</span></div>';
   }
@@ -894,41 +875,6 @@
     }).join('');
   }
 
-  function renderRealValidationReport(reporteValidacion) {
-    if (!reporteValidacion) {
-      return;
-    }
-
-    var baseline = reporteValidacion.baseline;
-    var realValidation = reporteValidacion.realValidation || {};
-    var hasConfirmations = realValidation.totalConfirmaciones && realValidation.totalConfirmaciones > 0;
-
-    var html = '<article class="ml-validation-report">' +
-      '<h3>Validación en Tiempo Real</h3>';
-
-    if (!hasConfirmations) {
-      html += '<div class="ml-note"><strong>Sin datos de validación real aún.</strong> ' +
-        'Marca predicciones como correctas/incorrectas en el UI para construir validación real.</div>';
-    } else {
-      html += '<div class="ml-validation-metrics">' +
-        '<div class="metric"><strong>Confirmaciones:</strong> ' + realValidation.totalConfirmaciones + '</div>' +
-        '<div class="metric"><strong>Correctas:</strong> ' + realValidation.correctas + '</div>' +
-        '<div class="metric"><strong>Incorrectas:</strong> ' + realValidation.incorrectas + '</div>' +
-        '<div class="metric metric-accuracy"><strong>Precisión Real:</strong> ' + formatPercent(realValidation.precisionReal / 100) + '</div>';
-
-      if (baseline) {
-        html += '<div class="metric"><strong>Baseline (entrenamiento):</strong> ' + formatPercent(baseline.accuracy / 100) + '</div>' +
-          '<div class="metric ' + (realValidation.degradacion < -0.05 ? 'metric-danger' : realValidation.degradacion < 0 ? 'metric-warning' : 'metric-ok') + '">' +
-          '<strong>Degradación:</strong> ' + (realValidation.degradacion > 0 ? '+' : '') + formatPercent(realValidation.degradacion / 100) + '</div>' +
-          '<div class="metric"><strong>Estado:</strong> ' + realValidation.estado + '</div>';
-      }
-
-      html += '</div>';
-    }
-
-    html += '</article>';
-    return html;
-  }
 
   async function refreshMlEvaluation() {
     if (mlValidationStatus) {
@@ -937,22 +883,11 @@
 
     var data = await fetchJson('/api/sensores/ml/evaluacion?limit=300', { cache: 'no-store' });
     
-    // Renderiza las 3 pestañas
+    // Renderiza las 2 pestañas activas
     var baselineData = data.baseline || (data.reporteValidacion && data.reporteValidacion.baseline);
     renderBaselineTab(baselineData);
     renderPseudoTab(data.pseudoEvaluacion);
-    renderRealTab(data.validacionReal);
     
-    // Carga la lectura más reciente para mostrar en panel de confirmación
-    try {
-      var lecturas = await fetchJson('/api/sensores/ultimas?limit=1', { cache: 'no-store' });
-      if (lecturas && lecturas.length > 0) {
-        currentReadingData = lecturas[0];
-        setupConfirmationPanel(currentReadingData);
-      }
-    } catch (e) {
-      console.warn('No se pudo cargar lectura actual para confirmación', e);
-    }
     
     // Setup tabs functionality
     setupTabsNavigation();
@@ -1077,88 +1012,6 @@
     container.innerHTML = html;
   }
 
-  function renderRealTab(real) {
-    var container = document.getElementById('mlRealContent');
-    if (!container || !real) return;
-
-    var html = '';
-    
-    if (real.totalConfirmaciones === 0) {
-      html += '<div class="ml-metric-card" style="background: #fff3cd; border-color: #e8a800;">';
-      html += '<div class="ml-metric-label">Sin confirmaciones registradas</div>';
-      html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-      html += real.message || 'Usa el dashboard para confirmar manualmente si las predicciones fueron correctas o incorrectas.';
-      html += '</p>';
-      html += '</div>';
-
-      html += '<div class="ml-visual-grid">';
-      html += renderRealValidationMatrix(real);
-      html += renderCountBars('Confirmaciones del usuario', [
-        { label: 'Correctas', value: real.correctas, className: 'ml-bar-fill--ok' },
-        { label: 'Incorrectas', value: real.incorrectas, className: 'ml-bar-fill--danger' },
-        { label: 'Total', value: real.totalConfirmaciones },
-      ]);
-      html += '</div>';
-    } else {
-      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
-      
-      html += '<div class="ml-metric-card">';
-      html += '<div class="ml-metric-label">Exactitud</div>';
-      html += '<div class="ml-metric-value">' + formatMetricPercentage(real.accuracy) + '</div>';
-      html += '</div>';
-      
-      html += '<div class="ml-metric-card">';
-      html += '<div class="ml-metric-label">Confirmaciones Correctas</div>';
-      html += '<div class="ml-metric-value" style="color: #2ecc71;">' + real.correctas + '</div>';
-      html += '</div>';
-      
-      html += '<div class="ml-metric-card">';
-      html += '<div class="ml-metric-label">Confirmaciones Incorrectas</div>';
-      html += '<div class="ml-metric-value" style="color: #e74c3c;">' + real.incorrectas + '</div>';
-      html += '</div>';
-      
-      html += '<div class="ml-metric-card">';
-      html += '<div class="ml-metric-label">Total Confirmaciones</div>';
-      html += '<div class="ml-metric-value">' + real.totalConfirmaciones + '</div>';
-      html += '</div>';
-      
-      html += '</div>';
-      
-      if (real.degradacion !== null && real.degradacion !== undefined) {
-        var degradationColor = real.degradacion < -5 ? '#e74c3c' : real.degradacion < 0 ? '#e8a800' : '#2ecc71';
-        
-        html += '<div class="ml-metric-card" style="background: ' + degradationColor + '20; border-color: ' + degradationColor + ';">';
-        html += '<div class="ml-metric-label">Estado del Modelo</div>';
-        html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-        html += '<strong>' + (real.estado || 'Sin estado') + '</strong><br>';
-        html += '<strong>Degradación:</strong> ' + real.degradacion.toFixed(2) + '%';
-        html += '</p>';
-        html += '</div>';
-      }
-
-      html += '<div class="ml-visual-grid">';
-      html += renderPercentBars('Grafica de exactitud real', [
-        { label: 'Exactitud real', value: real.accuracy, className: 'ml-bar-fill--ok' },
-      ]);
-      html += renderRealValidationMatrix(real);
-      html += renderCountBars('Confirmaciones del usuario', [
-        { label: 'Correctas', value: real.correctas, className: 'ml-bar-fill--ok' },
-        { label: 'Incorrectas', value: real.incorrectas, className: 'ml-bar-fill--danger' },
-        { label: 'Total', value: real.totalConfirmaciones },
-      ]);
-      html += '</div>';
-    }
-    
-    html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
-    html += '<div class="ml-metric-label">Información</div>';
-    html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-    html += (real.descripcion || 'Basada en confirmaciones manuales del usuario') + '<br>';
-    html += 'Marca predicciones como correctas o incorrectas desde el dashboard.';
-    html += '</p>';
-    html += '</div>';
-    
-    container.innerHTML = html;
-  }
 
   function setupTabsNavigation() {
     var tabBtns = document.querySelectorAll('.ml-tab-btn');
@@ -1188,76 +1041,7 @@
     });
   }
 
-  function setupConfirmationPanel(lectura) {
-    if (!mlConfirmationPanel || !lectura) return;
 
-    // Mostrar panel de confirmación
-    mlConfirmationPanel.style.display = 'block';
-    
-    // Llenar datos
-    document.getElementById('mlConfirmLecturaId').textContent = lectura.id || lectura._id || '-';
-    var riesgoMap = { 0: 'Normal', 1: 'Medio', 2: 'Alto' };
-    var riesgoText = riesgoMap[lectura.riesgo] || 'Desconocido';
-    document.getElementById('mlConfirmPredicion').textContent = riesgoText;
-    
-    // Setup botones
-    if (mlConfirmCorrectBtn) {
-      mlConfirmCorrectBtn.onclick = function () {
-        confirmPrediction(lectura, true);
-      };
-    }
-    if (mlConfirmIncorrectBtn) {
-      mlConfirmIncorrectBtn.onclick = function () {
-        confirmPrediction(lectura, false);
-      };
-    }
-  }
-
-  async function confirmPrediction(lectura, esCorrecta) {
-    if (!lectura || !mlConfirmationMsg) return;
-
-    try {
-      // Mostrar estado
-      mlConfirmationMsg.style.display = 'block';
-      mlConfirmationMsg.style.background = '#e3f2fd';
-      mlConfirmationMsg.style.color = '#1565c0';
-      mlConfirmationMsg.textContent = 'Guardando confirmación...';
-
-      var riesgoMap = { 0: 'normal', 1: 'medio', 2: 'alto' };
-      var prediccion = riesgoMap[lectura.riesgo] || 'desconocido';
-
-      var response = await fetch('/api/sensores/validar-prediccion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lecturaId: lectura.id || lectura._id,
-          prediccion: prediccion,
-          esCorrecta: esCorrecta,
-          razon: esCorrecta ? 'Usuario confirmó correcta' : 'Usuario confirmó incorrecta',
-        }),
-      });
-
-      var result = await response.json();
-
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Error al guardar');
-      }
-
-      // Éxito
-      mlConfirmationMsg.style.background = '#c8e6c9';
-      mlConfirmationMsg.style.color = '#2e7d32';
-      mlConfirmationMsg.textContent = '✓ Confirmación guardada. Recargando datos...';
-
-      // Recargar evaluación después de 1 segundo
-      setTimeout(function () {
-        refreshMlEvaluation().catch(console.error);
-      }, 1000);
-    } catch (error) {
-      mlConfirmationMsg.style.background = '#ffcdd2';
-      mlConfirmationMsg.style.color = '#c62828';
-      mlConfirmationMsg.textContent = 'Error: ' + error.message;
-    }
-  }
 
   function restoreAlertFilterState() {
     try {
@@ -1693,4 +1477,5 @@
     console.error('Error inicializando cliente PWA:', error);
   });
 }());
+
 

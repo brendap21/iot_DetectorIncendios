@@ -213,7 +213,7 @@ function renderMlEvaluationModal() {
       <div class="ml-modal__header">
         <div>
           <p class="ml-kicker">Evaluacion con lecturas reales</p>
-          <h3 id="mlResultsTitle">Análisis de Machine Learning - 3 Niveles de Validación</h3>
+          <h3 id="mlResultsTitle">Analisis de Machine Learning - 2 Niveles de Validacion</h3>
         </div>
         <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
       </div>
@@ -226,9 +226,6 @@ function renderMlEvaluationModal() {
           <button class="ml-tab-btn" data-tab="pseudo" role="tab" aria-selected="false" aria-controls="pseudo-panel">
             Pseudo-Evaluación (Tiempo Real)
           </button>
-          <button class="ml-tab-btn" data-tab="real" role="tab" aria-selected="false" aria-controls="real-panel">
-            Validación Real (Confirmaciones)
-          </button>
         </div>
 
         <div class="ml-tabs__content">
@@ -240,11 +237,6 @@ function renderMlEvaluationModal() {
           <!-- Tab 2: Pseudo-Evaluación -->
           <div id="pseudo-panel" class="ml-tab-panel" role="tabpanel" aria-labelledby="pseudo-tab">
             <div id="mlPseudoContent"></div>
-          </div>
-
-          <!-- Tab 3: Validación Real -->
-          <div id="real-panel" class="ml-tab-panel" role="tabpanel" aria-labelledby="real-tab">
-            <div id="mlRealContent"></div>
           </div>
         </div>
       </div>
@@ -289,25 +281,6 @@ function renderMlEvaluationModal() {
           <div id="mlValidationStatus" class="ml-note">Cargando evaluacion...</div>
           <div id="mlValidationList" class="ml-validation-list"></div>
         </section>
-
-        <section class="ml-block ml-confirmation-panel" id="mlConfirmationPanel" style="display: none; background: #f8f9fa; border: 1px solid #e0e3e8; border-radius: 8px; padding: 16px;">
-          <h4 style="margin-bottom: 12px;">Validar Predicción Actual</h4>
-          <div id="mlConfirmationInfo" style="margin-bottom: 16px; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #1e5dd2;">
-            <p style="margin: 0; font-size: 13px; color: #556b7f;">
-              <strong>Lectura ID:</strong> <span id="mlConfirmLecturaId">-</span><br>
-              <strong>Predicción del modelo:</strong> <span id="mlConfirmPredicion">-</span>
-            </p>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-success" id="mlConfirmCorrectBtn" style="flex: 1;">
-              ✓ La predicción fue correcta
-            </button>
-            <button type="button" class="btn btn-danger" id="mlConfirmIncorrectBtn" style="flex: 1;">
-              ✗ La predicción fue incorrecta
-            </button>
-          </div>
-          <div id="mlConfirmationMsg" style="margin-top: 8px; padding: 8px; border-radius: 4px; display: none; font-size: 12px;"></div>
-        </section>
       </div>
     </section>
   </div>`;
@@ -348,7 +321,6 @@ function renderResultadosPage(lecturas, meta) {
   <meta name="theme-color" content="#1a1a2e" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
-  <link rel="stylesheet" href="/notification-history.css" />
   <title>Monitor IoT - Detector de Incendios</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2232,7 +2204,6 @@ function renderResultadosPage(lecturas, meta) {
       <a class="section-link" href="#sec-resumen">Resumen</a>
       <a class="section-link" href="#sec-control">Control</a>
       <a class="section-link" href="#sec-alertas">Alertas</a>
-      <a class="section-link" href="#sec-notificaciones">Notificaciones</a>
       <a class="section-link" href="#sec-grafica">Grafica</a>
       <a class="section-link" href="#sec-historial">Historial</a>
     </nav>
@@ -2330,39 +2301,6 @@ function renderResultadosPage(lecturas, meta) {
         <li><strong>Sin alertas nuevas</strong><div class="meta">Activa notificaciones para recibir eventos en tu celular.</div></li>
       </ul>
       <div class="alerts-help">Consejo: activa notificaciones para recibir aviso inmediato cuando el modelo detecte riesgo alto o probabilidad elevada de incendio.</div>
-    </div>
-    </section>
-
-    <section id="sec-notificaciones" class="section">
-    <h2>Historial de notificaciones</h2>
-    <p class="section-hint">Aqui ves todas las notificaciones enviadas a tu dispositivo. Puedes filtrar, marcar como leidas y ver estadisticas de entrega.</p>
-    
-    <div id="notificationHistoryContainer">
-      <div class="notif-controls">
-        <select id="notifSeverityFilter" class="filter" aria-label="Filtrar por severidad">
-          <option value="all">Severidad: todas</option>
-          <option value="critical">Critica</option>
-          <option value="high">Alta</option>
-          <option value="medium">Media</option>
-          <option value="low">Baja</option>
-        </select>
-        <select id="notifStatusFilter" class="filter" aria-label="Filtrar por estado">
-          <option value="all">Estado: todos</option>
-          <option value="success">Exitosas</option>
-          <option value="failed">Fallidas</option>
-          <option value="partial">Parciales</option>
-        </select>
-        <label class="filter-check" for="notifOnlyUnread">
-          <input id="notifOnlyUnread" type="checkbox" />
-          Solo no leidas
-        </label>
-        <button id="notificationRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
-      </div>
-
-      <div id="notificationResumenStats" style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow);"></div>
-
-      <div id="notificationHistoryStatus"></div>
-      <div id="notificationHistoryList"></div>
     </div>
     </section>
 
@@ -2475,7 +2413,6 @@ function renderResultadosPage(lecturas, meta) {
   <script src="/gas-chart.js"></script>
   <script src="/pwa-client.js"></script>
   <script src="/history-view.js"></script>
-  <script src="/notification-history.js"></script>
 </body>
 </html>`;
 }
@@ -2584,3 +2521,4 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+
