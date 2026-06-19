@@ -18,6 +18,11 @@
   var mlConfusionGrid = document.getElementById('mlConfusionGrid');
   var mlValidationStatus = document.getElementById('mlValidationStatus');
   var mlValidationList = document.getElementById('mlValidationList');
+  var mlConfirmationPanel = document.getElementById('mlConfirmationPanel');
+  var mlConfirmCorrectBtn = document.getElementById('mlConfirmCorrectBtn');
+  var mlConfirmIncorrectBtn = document.getElementById('mlConfirmIncorrectBtn');
+  var mlConfirmationMsg = document.getElementById('mlConfirmationMsg');
+  var currentReadingData = null;
   var lastCriticalAlertId = null;
   var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
@@ -809,6 +814,17 @@
     renderPseudoTab(data.pseudoEvaluacion);
     renderRealTab(data.validacionReal);
     
+    // Carga la lectura más reciente para mostrar en panel de confirmación
+    try {
+      var lecturas = await fetchJson('/api/sensores/ultimas?limit=1', { cache: 'no-store' });
+      if (lecturas && lecturas.length > 0) {
+        currentReadingData = lecturas[0];
+        setupConfirmationPanel(currentReadingData);
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar lectura actual para confirmación', e);
+    }
+    
     // Setup tabs functionality
     setupTabsNavigation();
     
@@ -846,11 +862,15 @@
     html += '</div>';
     
     html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
-    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<div class="ml-metric-label">Información</div>';
     html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-    html += '<strong>Descripción:</strong> ' + (baseline.descripcion || 'Métricas del modelo durante entrenamiento') + '<br>';
-    html += '<strong>Muestras de validación:</strong> ' + baseline.totalMuestras + '<br>';
-    html += '<strong>Incendios en test:</strong> ' + baseline.incendiosDetectados + '<br>';
+    html += (baseline.descripcion || 'Métricas del modelo durante entrenamiento') + '<br>';
+    if (baseline.totalMuestras !== 'N/A') {
+      html += '<strong>Muestras:</strong> ' + baseline.totalMuestras + '<br>';
+    }
+    if (baseline.incendiosDetectados !== 'N/A') {
+      html += '<strong>Incendios:</strong> ' + baseline.incendiosDetectados + '<br>';
+    }
     html += '</p>';
     html += '</div>';
     
@@ -886,13 +906,12 @@
     html += '</div>';
     
     html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
-    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<div class="ml-metric-label">Información</div>';
     html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-    html += '<strong>Descripción:</strong> ' + (pseudo.descripcion || 'Comparación del modelo vs heurística en tiempo real') + '<br>';
-    html += '<strong>Total lecturas evaluadas:</strong> ' + pseudo.totalLecturas + '<br>';
-    html += '<strong>Incendios observados:</strong> ' + pseudo.totalIncendios + '<br>';
+    html += (pseudo.descripcion || 'Comparación del modelo vs heurística en tiempo real') + '<br>';
+    html += '<strong>Lecturas:</strong> ' + pseudo.totalLecturas + ' | <strong>Incendios:</strong> ' + pseudo.totalIncendios + '<br>';
     if (pseudo.advertencia) {
-      html += '<strong>⚠️ Advertencia:</strong> ' + pseudo.advertencia + '<br>';
+      html += '<strong>Advertencia:</strong> ' + pseudo.advertencia + '<br>';
     }
     html += '</p>';
     html += '</div>';
@@ -921,7 +940,7 @@
     
     if (real.totalConfirmaciones === 0) {
       html += '<div class="ml-metric-card" style="background: #fff3cd; border-color: #e8a800;">';
-      html += '<div class="ml-metric-label">⚠️ Sin confirmaciones registradas</div>';
+      html += '<div class="ml-metric-label">Sin confirmaciones registradas</div>';
       html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
       html += real.message || 'Usa el dashboard para confirmar manualmente si las predicciones fueron correctas o incorrectas.';
       html += '</p>';
@@ -953,10 +972,9 @@
       
       if (real.degradacion !== null && real.degradacion !== undefined) {
         var degradationColor = real.degradacion < -5 ? '#e74c3c' : real.degradacion < 0 ? '#e8a800' : '#2ecc71';
-        var degradationIcon = real.degradacion < -5 ? '🔴' : real.degradacion < 0 ? '🟡' : '🟢';
         
         html += '<div class="ml-metric-card" style="background: ' + degradationColor + '20; border-color: ' + degradationColor + ';">';
-        html += '<div class="ml-metric-label">' + degradationIcon + ' Estado del Modelo</div>';
+        html += '<div class="ml-metric-label">Estado del Modelo</div>';
         html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
         html += '<strong>' + (real.estado || 'Sin estado') + '</strong><br>';
         html += '<strong>Degradación:</strong> ' + real.degradacion.toFixed(2) + '%';
@@ -966,10 +984,10 @@
     }
     
     html += '<div class="ml-metric-card" style="background: #f0f4ff; border-color: #1e5dd2;">';
-    html += '<div class="ml-metric-label">ℹ️ Información</div>';
+    html += '<div class="ml-metric-label">Información</div>';
     html += '<p style="margin: 8px 0; font-size: 13px; color: #1a1a2e;">';
-    html += '<strong>Descripción:</strong> ' + (real.descripcion || 'Basada en confirmaciones manuales del usuario') + '<br>';
-    html += 'Marca predicciones como correctas o incorrectas desde el dashboard para construir esta validación.';
+    html += (real.descripcion || 'Basada en confirmaciones manuales del usuario') + '<br>';
+    html += 'Marca predicciones como correctas o incorrectas desde el dashboard.';
     html += '</p>';
     html += '</div>';
     
@@ -1002,6 +1020,77 @@
         }
       });
     });
+  }
+
+  function setupConfirmationPanel(lectura) {
+    if (!mlConfirmationPanel || !lectura) return;
+
+    // Mostrar panel de confirmación
+    mlConfirmationPanel.style.display = 'block';
+    
+    // Llenar datos
+    document.getElementById('mlConfirmLecturaId').textContent = lectura.id || lectura._id || '-';
+    var riesgoMap = { 0: 'Normal', 1: 'Medio', 2: 'Alto' };
+    var riesgoText = riesgoMap[lectura.riesgo] || 'Desconocido';
+    document.getElementById('mlConfirmPredicion').textContent = riesgoText;
+    
+    // Setup botones
+    if (mlConfirmCorrectBtn) {
+      mlConfirmCorrectBtn.onclick = function () {
+        confirmPrediction(lectura, true);
+      };
+    }
+    if (mlConfirmIncorrectBtn) {
+      mlConfirmIncorrectBtn.onclick = function () {
+        confirmPrediction(lectura, false);
+      };
+    }
+  }
+
+  async function confirmPrediction(lectura, esCorrecta) {
+    if (!lectura || !mlConfirmationMsg) return;
+
+    try {
+      // Mostrar estado
+      mlConfirmationMsg.style.display = 'block';
+      mlConfirmationMsg.style.background = '#e3f2fd';
+      mlConfirmationMsg.style.color = '#1565c0';
+      mlConfirmationMsg.textContent = 'Guardando confirmación...';
+
+      var riesgoMap = { 0: 'normal', 1: 'medio', 2: 'alto' };
+      var prediccion = riesgoMap[lectura.riesgo] || 'desconocido';
+
+      var response = await fetch('/api/sensores/validar-prediccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lecturaId: lectura.id || lectura._id,
+          prediccion: prediccion,
+          esCorrecta: esCorrecta,
+          razon: esCorrecta ? 'Usuario confirmó correcta' : 'Usuario confirmó incorrecta',
+        }),
+      });
+
+      var result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || 'Error al guardar');
+      }
+
+      // Éxito
+      mlConfirmationMsg.style.background = '#c8e6c9';
+      mlConfirmationMsg.style.color = '#2e7d32';
+      mlConfirmationMsg.textContent = '✓ Confirmación guardada. Recargando datos...';
+
+      // Recargar evaluación después de 1 segundo
+      setTimeout(function () {
+        refreshMlEvaluation().catch(console.error);
+      }, 1000);
+    } catch (error) {
+      mlConfirmationMsg.style.background = '#ffcdd2';
+      mlConfirmationMsg.style.color = '#c62828';
+      mlConfirmationMsg.textContent = 'Error: ' + error.message;
+    }
   }
 
   function restoreAlertFilterState() {

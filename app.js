@@ -221,13 +221,13 @@ function renderMlEvaluationModal() {
       <div class="ml-tabs">
         <div class="ml-tabs__nav" role="tablist">
           <button class="ml-tab-btn ml-tab-btn--active" data-tab="baseline" role="tab" aria-selected="true" aria-controls="baseline-panel">
-            📊 Baseline (Entrenamiento)
+            Baseline (Entrenamiento)
           </button>
           <button class="ml-tab-btn" data-tab="pseudo" role="tab" aria-selected="false" aria-controls="pseudo-panel">
-            ⚙️ Pseudo-Evaluación (Tiempo Real)
+            Pseudo-Evaluación (Tiempo Real)
           </button>
           <button class="ml-tab-btn" data-tab="real" role="tab" aria-selected="false" aria-controls="real-panel">
-            ✓ Validación Real (Confirmaciones)
+            Validación Real (Confirmaciones)
           </button>
         </div>
 
@@ -288,6 +288,25 @@ function renderMlEvaluationModal() {
           <p>Las metricas se calculan automaticamente con lecturas del prototipo. Se considera incendio observado cuando hay llama o el gas supera el umbral alto.</p>
           <div id="mlValidationStatus" class="ml-note">Cargando evaluacion...</div>
           <div id="mlValidationList" class="ml-validation-list"></div>
+        </section>
+
+        <section class="ml-block ml-confirmation-panel" id="mlConfirmationPanel" style="display: none; background: #f8f9fa; border: 1px solid #e0e3e8; border-radius: 8px; padding: 16px;">
+          <h4 style="margin-bottom: 12px;">Validar Predicción Actual</h4>
+          <div id="mlConfirmationInfo" style="margin-bottom: 16px; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #1e5dd2;">
+            <p style="margin: 0; font-size: 13px; color: #556b7f;">
+              <strong>Lectura ID:</strong> <span id="mlConfirmLecturaId">-</span><br>
+              <strong>Predicción del modelo:</strong> <span id="mlConfirmPredicion">-</span>
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-success" id="mlConfirmCorrectBtn" style="flex: 1;">
+              ✓ La predicción fue correcta
+            </button>
+            <button type="button" class="btn btn-danger" id="mlConfirmIncorrectBtn" style="flex: 1;">
+              ✗ La predicción fue incorrecta
+            </button>
+          </div>
+          <div id="mlConfirmationMsg" style="margin-top: 8px; padding: 8px; border-radius: 4px; display: none; font-size: 12px;"></div>
         </section>
       </div>
     </section>

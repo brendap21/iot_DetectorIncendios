@@ -238,5 +238,13 @@
     "esCorrecta": false,
     "razon": "Falsa alarma detectada",
     "confirmadoEn": "2026-06-16T22:17:49.361Z"
+  },
+  {
+    "id": "test-mock-001-1781857268964",
+    "lecturaId": "test-mock-001",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Usuario confirmó correcta",
+    "confirmadoEn": "2026-06-19T08:21:08.964Z"
   }
 ]
