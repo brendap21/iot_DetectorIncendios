@@ -357,18 +357,41 @@ async function obtenerAlertasAdafruit(options = {}) {
 }
 
 async function obtenerEvaluacionAdafruit(limit = 300) {
-  const resultado = await obtenerLecturasAdafruit({ limit: Math.min(limit, 100) });
-  const lecturas = resultado.lecturas.map((lectura) => ({
-    ...lectura,
-    incendioObservado: esIncendioObservado(lectura),
-  }));
+  /**
+   * Obtiene evaluación del modelo desde datos de Adafruit.
+   * Calcula pseudo-validación y retorna con reporte de validación real.
+   */
+  try {
+    const resultado = await obtenerLecturasAdafruit({ limit: Math.min(limit, 100) });
+    const lecturas = resultado.lecturas.map((lectura) => ({
+      ...lectura,
+      incendioObservado: esIncendioObservado(lectura),
+    }));
 
-  return {
-    ok: true,
-    source: 'adafruit-io',
-    evaluacion: calcularEvaluacionModelo(lecturas),
-    lecturas: lecturas.slice(0, 20),
-  };
+    // Calcula pseudo-validación
+    const evaluacion = calcularEvaluacionModelo(lecturas);
+
+    // Importa servicio de validación real
+    const { getValidationReport } = require('./prediction-validation.service');
+    const reporteValidacion = getValidationReport();
+
+    return {
+      ok: true,
+      source: 'adafruit-io',
+      evaluacion,
+      reporteValidacion,
+      lecturas: lecturas.slice(0, 20),
+    };
+  } catch (error) {
+    logger.error('Error en obtenerEvaluacionAdafruit', error.message);
+    return {
+      ok: false,
+      error: 'No se pudo obtener evaluación de Adafruit',
+      evaluacion: null,
+      reporteValidacion: null,
+      lecturas: [],
+    };
+  }
 }
 
 module.exports = {
