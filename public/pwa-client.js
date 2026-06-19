@@ -764,9 +764,38 @@
     }).join('');
   }
 
+  function renderBaselineMetrics(reporteValidacion) {
+    if (!reporteValidacion || !reporteValidacion.baseline) {
+      return '';
+    }
+
+    var baseline = reporteValidacion.baseline;
+    var html = '<section style="background: linear-gradient(135deg, #e8f0ff 0%, #f0f7ff 100%); border: 1px solid #c5d9f5; border-left: 5px solid #1a4d99; padding: 14px; margin: 0 0 14px 0; border-radius: 10px;">' +
+      '<h3 style="color: #1a4d99; font-size: 14px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 800;">' +
+      '📊 Nivel 1: Baseline (Validación en Entrenamiento)' +
+      '</h3>' +
+      '<p style="font-size: 12px; color: #1a4d99; margin-bottom: 12px; line-height: 1.4;">' +
+      'Métricas del modelo en el 20% de datos que NUNCA vio durante entrenamiento. Este es el punto de referencia esperado.' +
+      '</p>' +
+      '<div class="ml-validation-metrics validation-level-1" style="background: rgba(255, 255, 255, 0.85); border: 1px solid #c5d9f5; border-radius: 8px; padding: 12px;">' +
+      '<div class="metric" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(26, 77, 153, 0.03)); border: 1px solid #d4e3f5; border-radius: 6px; padding: 10px; margin-bottom: 8px;">' +
+      '<strong style="color: #1a4d99;">Exactitud:</strong> ' + formatPercent(baseline.accuracy / 100) + '</div>' +
+      '<div class="metric" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(26, 77, 153, 0.03)); border: 1px solid #d4e3f5; border-radius: 6px; padding: 10px; margin-bottom: 8px;">' +
+      '<strong style="color: #1a4d99;">Precisión:</strong> ' + formatPercent(baseline.precision / 100) + '</div>' +
+      '<div class="metric" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(26, 77, 153, 0.03)); border: 1px solid #d4e3f5; border-radius: 6px; padding: 10px; margin-bottom: 8px;">' +
+      '<strong style="color: #1a4d99;">Sensibilidad:</strong> ' + formatPercent(baseline.recall / 100) + '</div>' +
+      '<div class="metric" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(26, 77, 153, 0.03)); border: 1px solid #d4e3f5; border-radius: 6px; padding: 10px; margin-bottom: 8px;">' +
+      '<strong style="color: #1a4d99;">F1-score:</strong> ' + formatPercent(baseline.f1 / 100) + '</div>' +
+      '<div class="metric" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(26, 77, 153, 0.03)); border: 1px solid #d4e3f5; border-radius: 6px; padding: 10px; font-size: 11px; color: #556b7f;">' +
+      '<strong style="color: #1a4d99;">Tamaño test set:</strong> ' + baseline.testSetSize + ' muestras | Exportado: ' + (baseline.exportedAt ? new Date(baseline.exportedAt).toLocaleString('es-MX') : '-') +
+      '</div></div></section>';
+
+    return html;
+  }
+
   function renderRealValidationReport(reporteValidacion) {
     if (!reporteValidacion) {
-      return;
+      return '';
     }
 
     var baseline = reporteValidacion.baseline;
@@ -813,10 +842,11 @@
     renderConfusionMatrix(evaluacion);
     renderValidationList(data.lecturas || []);
 
-    // Append real validation report if available
+    // Render baseline (Nivel 1) + pseudo-validation (Nivel 2) + real validation (Nivel 3)
     if (mlValidationList && reporteValidacion) {
+      var baselineHTML = renderBaselineMetrics(reporteValidacion);
       var reportHTML = renderRealValidationReport(reporteValidacion);
-      mlValidationList.innerHTML += reportHTML;
+      mlValidationList.innerHTML = baselineHTML + reportHTML + mlValidationList.innerHTML;
     }
 
     if (mlValidationStatus) {

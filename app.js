@@ -232,6 +232,16 @@ function renderMlEvaluationModal() {
       <div id="mlSummaryGrid" class="ml-summary-grid" aria-live="polite"></div>
 
       <div class="ml-modal__body">
+        <!-- NIVEL 1: BASELINE -->
+        <section class="ml-block" style="background: linear-gradient(135deg, #e8f0ff 0%, #f0f7ff 100%); border: 1px solid #c5d9f5; border-left: 5px solid #1a4d99;">
+          <h4 style="color: #1a4d99; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 800; margin-bottom: 8px;">
+            📊 Nivel 1: Baseline (Validación en Entrenamiento)
+          </h4>
+          <p style="font-size: 12px; color: #1a4d99; margin-bottom: 0; line-height: 1.4;">
+            El modelo fue validado en el 20% de datos que NUNCA vio durante entrenamiento. Estos números son tu punto de referencia esperado en producción.
+          </p>
+        </section>
+
         <section class="ml-block">
           <h4>Que analiza el modelo</h4>
           <p>El sistema usa las lecturas de llama, gas y movimiento para estimar el riesgo de incendio. La salida se resume en tres niveles: normal, medio y alto.</p>

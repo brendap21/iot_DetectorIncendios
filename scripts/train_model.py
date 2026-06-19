@@ -331,10 +331,10 @@ def exportar_baseline(y_validacion: np.ndarray, predicciones: np.ndarray) -> Non
     
     datos_baseline = {
         "exportadoEn": datetime.utcnow().isoformat() + "Z",
-        "tamañoDataset": int(len(y_validacion)),
-        "exactitud": float(accuracy_score(y_validacion, predicciones)),
+        "datasetSize": int(len(y_validacion)),
+        "accuracy": float(accuracy_score(y_validacion, predicciones)),
         "precision": float(precision_score(y_validacion, predicciones, average="weighted", zero_division=0)),
-        "sensibilidad": float(recall_score(y_validacion, predicciones, average="weighted", zero_division=0)),
+        "recall": float(recall_score(y_validacion, predicciones, average="weighted", zero_division=0)),
         "f1": float(f1_score(y_validacion, predicciones, average="weighted", zero_division=0)),
         "matrizConfusion": {
             "verdaderosNegativos": int(matriz_confusion[0, 0] + matriz_confusion[1, 1] + matriz_confusion[2, 2]),

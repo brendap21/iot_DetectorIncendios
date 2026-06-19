@@ -502,14 +502,14 @@ const obtenerEvaluacionModelo = async (req, res) => {
     const lecturas = snapshot.docs.map(normalizarDocLectura);
     const evaluacion = calcularEvaluacionModelo(lecturas);
     
-    // Get real validation metrics if available
+    // Get validation metrics (both real validation and baseline)
     const reporteValidacion = getValidationReport();
 
     return res.status(200).json({
       ok: true,
       source: 'firestore',
       evaluacion,
-      reporteValidacion,
+      reporteValidacion,  // Includes baseline from prediction-validation.service
       lecturas: lecturas.slice(0, 20).map((lectura) => ({
         ...lectura,
         incendioObservado: esIncendioObservado(lectura),
