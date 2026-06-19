@@ -58,7 +58,12 @@ app.use((req, res, next) => {
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
+    max: Number(process.env.RATE_LIMIT_PER_MINUTE || 600),
+    skip: (req) => {
+      return req.path === '/api/sensores/ultimas'
+        || req.path === '/api/alertas/ultimas'
+        || req.path.startsWith('/api/alertas/');
+    },
     message: {
       ok: false,
       error: 'Demasiadas peticiones'
@@ -117,38 +122,51 @@ function riesgoMeta(riesgo) {
 function interpretarEstado(ultima) {
   if (!ultima) return '<p class="interp">Sin datos todavia.</p>';
 
-  const partes = [];
+  const evidencia = [];
+  const probabilidad = Number(ultima.probabilidad || 0);
 
   if (ultima.llama === 1) {
-    partes.push('Se detecto llama.');
+    evidencia.push('llama detectada');
   } else {
-    partes.push('No se detecta llama.');
+    evidencia.push('sin llama');
   }
 
-  partes.push(`Gas: ${ultima.gas} ADC.`);
+  evidencia.push(`gas ${ultima.gas} ADC`);
 
   if (ultima.prediccion_gas === 'subiendo') {
-    partes.push('La concentracion de gas va en aumento.');
+    evidencia.push('gas subiendo');
   } else if (ultima.prediccion_gas === 'bajando') {
-    partes.push('La concentracion de gas esta bajando.');
+    evidencia.push('gas bajando');
   } else {
-    partes.push('Nivel de gas estable.');
+    evidencia.push('gas estable');
   }
 
   // Estandar de todo el sistema: 1 = movimiento detectado.
   if (ultima.movimiento === 1) {
-    partes.push('Hay movimiento en el area.');
+    evidencia.push('movimiento detectado');
+  } else {
+    evidencia.push('sin movimiento');
   }
 
   if (ultima.anomalia) {
-    partes.push('La lectura es estadisticamente anomala respecto al historico.');
+    evidencia.push('anomalia ML');
   }
 
   const { cls, texto } = riesgoMeta(ultima.riesgo);
+  const accion = ultima.riesgo === 'alto'
+    ? 'Revisa el area de inmediato y corta fuentes de ignicion si es seguro hacerlo.'
+    : ultima.riesgo === 'medio'
+      ? 'Mantente atento y verifica ventilacion, gas y presencia cercana.'
+      : 'Mantener monitoreo.';
+
   return `
     <div class="interp-wrap">
       <span class="tag ${cls}">${texto}</span>
-      <p class="interp">${partes.join(' ')}</p>
+      <div class="interp">
+        <strong>Lectura interpretada:</strong> ${evidencia.join(' · ')}.
+        <br><strong>Probabilidad ML:</strong> ${Math.round(probabilidad * 100)}%.
+        <br><strong>Accion sugerida:</strong> ${accion}
+      </div>
     </div>`;
 }
 

@@ -104,6 +104,104 @@ function normalizeDatum(datum) {
   };
 }
 
+function severityRank(severidad) {
+  const rank = { critical: 0, high: 1, medium: 2 };
+  return rank[severidad] ?? 3;
+}
+
+function getHighestSeverity(alertas) {
+  return alertas.reduce((highest, alerta) => {
+    return severityRank(alerta.severidad) < severityRank(highest)
+      ? alerta.severidad
+      : highest;
+  }, 'medium');
+}
+
+function buildIncidentEvidence(alertas, lectura) {
+  const tipos = new Set(alertas.map((alerta) => alerta.tipo));
+  const evidencia = [];
+  const probabilidad = Number(lectura && lectura.probabilidad || 0);
+  const gas = Number(lectura && lectura.gas || 0);
+
+  if (tipos.has('llama_detectada')) {
+    evidencia.push('Llama detectada');
+  }
+
+  if (tipos.has('gas_extremo')) {
+    evidencia.push(`Gas alto (${gas} ADC)`);
+  } else if (tipos.has('tendencia_gas_subiendo')) {
+    evidencia.push('Gas subiendo');
+  } else if (tipos.has('cambio_extremo_gas')) {
+    evidencia.push('Cambio fuerte de gas');
+  }
+
+  if (tipos.has('riesgo_alto') || tipos.has('probabilidad_incendio_alta') || tipos.has('probabilidad_incendio_media')) {
+    evidencia.push(`Analisis ML: ${Math.round(probabilidad * 100)}%`);
+  }
+
+  if (tipos.has('movimiento_detectado')) {
+    evidencia.push('Movimiento detectado');
+  }
+
+  if (tipos.has('anomalia_estadistica')) {
+    evidencia.push('Lectura fuera de lo normal');
+  }
+
+  return evidencia.length > 0 ? evidencia : ['Lectura con riesgo'];
+}
+
+function summarizeAlertsAsIncident(alertas, lectura) {
+  if (!Array.isArray(alertas) || alertas.length === 0 || !lectura) {
+    return [];
+  }
+
+  const severidad = getHighestSeverity(alertas);
+  const evidencia = buildIncidentEvidence(alertas, lectura);
+
+  if (severidad === 'critical') {
+    return [{
+      tipo: 'incidente_actual',
+      severidad,
+      titulo: 'Amenaza critica',
+      mensaje: 'Hay senales de incendio o explosion. Revisa el area de inmediato.',
+      accion: 'Alejate si no es seguro, ventila el area y corta fuentes de ignicion solo si puedes hacerlo sin riesgo.',
+      evidencia,
+      lecturaId: lectura.id,
+      leida: false,
+      fecha: lectura.fecha,
+      source: 'adafruit-io',
+    }];
+  }
+
+  if (severidad === 'high') {
+    return [{
+      tipo: 'incidente_actual',
+      severidad,
+      titulo: 'Advertencia de riesgo',
+      mensaje: 'El detector ve una condicion que puede volverse peligrosa.',
+      accion: 'Revisa gas, ventilacion y el area cercana al detector.',
+      evidencia,
+      lecturaId: lectura.id,
+      leida: false,
+      fecha: lectura.fecha,
+      source: 'adafruit-io',
+    }];
+  }
+
+  return [{
+    tipo: 'incidente_actual',
+    severidad,
+    titulo: 'Evento detectado',
+    mensaje: 'Se detecto actividad cerca del sensor.',
+    accion: 'Verifica que el detector siga en su lugar y que no haya riesgo visible.',
+    evidencia,
+    lecturaId: lectura.id,
+    leida: false,
+    fecha: lectura.fecha,
+    source: 'adafruit-io',
+  }];
+}
+
 function matchesReadingFilters(reading, filters) {
   if (!filters) return true;
   if (filters.riesgo && (reading.riesgo || 'normal') !== filters.riesgo) return false;
@@ -240,7 +338,9 @@ async function obtenerAlertasAdafruit(options = {}) {
     unicasPorTipo.push(alerta);
   });
 
-  const activeAlerts = alertState.syncActiveAlerts(unicasPorTipo);
+  const latestReading = resultado.lecturas[0] || null;
+  const summarizedAlerts = summarizeAlertsAsIncident(unicasPorTipo, latestReading);
+  const activeAlerts = alertState.syncActiveAlerts(summarizedAlerts);
 
   const filtradas = activeAlerts.filter((alerta) => {
     const severidadOk = severidades.length === 0 || severidades.includes((alerta.severidad || '').toLowerCase());

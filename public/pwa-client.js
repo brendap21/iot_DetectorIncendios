@@ -24,6 +24,7 @@
   var LS_NOTIF_MENU_OPEN = 'iot.notifMenuOpen.v1';
   var LS_NOTIFIED_ALERTS = 'iot.notifiedAlerts.v1';
   var LS_NOTIFIED_TYPES = 'iot.notifiedAlertTypes.v1';
+  var LS_DISMISSED_ACTIVE_ALERTS = 'iot.dismissedActiveAlerts.v1';
   var audioUnlocked = false;
   var audioCtx = null;
 
@@ -49,6 +50,15 @@
     }
 
     return data;
+  }
+
+  function escapeHtml(value) {
+    return String(value === undefined || value === null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function playCriticalTone() {
@@ -205,36 +215,56 @@
         marcarLeida(alertId).catch(function (error) {
           alert('No se pudo marcar la alerta: ' + error.message);
           btn.disabled = false;
-          btn.textContent = 'Marcar leida';
+          btn.textContent = 'Entendido';
         });
       });
     });
   }
 
+  function severityLabel(severity) {
+    if (severity === 'critical') return 'Critica';
+    if (severity === 'high') return 'Alta';
+    if (severity === 'medium') return 'Media';
+    return 'Aviso';
+  }
+
   function renderAlertItems(items, compact) {
     if (!Array.isArray(items) || items.length === 0) {
-      return '<li><strong>Sin alertas nuevas</strong><div class="meta">Cuando ocurra un evento critico aparecera aqui.</div></li>';
+      return '<li><strong>Sin alertas activas</strong><div class="meta">Si aparece una amenaza, la veras aqui con una accion clara.</div></li>';
     }
 
     return items.map(function (a) {
       var sev = a.severidad || 'medium';
+      a.tipo = severityLabel(sev);
       var fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
-      var estado = a.leida ? 'Leida' : 'No leida';
+      var estado = a.leida ? 'Atendida' : 'Activa';
       var estadoClass = a.leida ? 'badge-state read' : 'badge-state';
       var btn = a.leida
-        ? '<button class="btn-mark-read" disabled>Leida</button>'
-        : '<button class="btn-mark-read" data-alert-id="' + a.id + '">Marcar leida</button>';
+        ? '<button class="btn-mark-read" disabled>Atendida</button>'
+        : '<button class="btn-mark-read" data-alert-id="' + escapeHtml(a.id) + '">Entendido</button>';
       var compactStyle = compact ? ' style="margin-bottom:2px;"' : '';
+      var evidencia = Array.isArray(a.evidencia) && a.evidencia.length > 0
+        ? '<div class="alert-evidence">' + a.evidencia.map(function (item) {
+          return '<span>' + escapeHtml(item) + '</span>';
+        }).join('') + '</div>'
+        : '';
+      var accion = a.accion
+        ? '<div class="alert-action"><strong>Que hacer:</strong> ' + escapeHtml(a.accion) + '</div>'
+        : '';
 
       return '<li class="' + sev + '">' +
-        '<div class="alert-top"' + compactStyle + '><strong>' + (a.titulo || 'Alerta') + '</strong><span class="' + estadoClass + '">' + estado + '</span>' + btn + '</div>' +
-        '<div>' + (a.mensaje || '') + '</div>' +
+        '<div class="alert-top"' + compactStyle + '><strong>' + escapeHtml(a.titulo || 'Alerta') + '</strong><span class="' + estadoClass + '">' + estado + '</span>' + btn + '</div>' +
+        '<div class="alert-message">' + escapeHtml(a.mensaje || '') + '</div>' +
+        evidencia +
+        accion +
         '<div class="meta">' + fecha + ' · ' + (a.tipo || '-') + '</div>' +
       '</li>';
     }).join('');
   }
 
   function renderAlerts(items) {
+    window.__lastRenderedAlerts = Array.isArray(items) ? items : [];
+
     if (alertsList) {
       alertsList.innerHTML = renderAlertItems(items, false);
       bindReadButtons(alertsList);
@@ -266,8 +296,9 @@
     }
 
     if (severity === 'critical') {
-      playCriticalTone();
-      setTimeout(playCriticalTone, 420);
+      [0, 420, 840, 1260].forEach(function (delay) {
+        setTimeout(playCriticalTone, delay);
+      });
       return;
     }
 
@@ -354,6 +385,44 @@
     }
   }
 
+  function getActiveAlertSignature(alertas) {
+    if (!Array.isArray(alertas)) {
+      return '';
+    }
+
+    return alertas
+      .filter(function (alerta) { return alerta && alerta.leida !== true; })
+      .map(function (alerta) { return alerta.id || alerta.tipo || ''; })
+      .filter(Boolean)
+      .sort()
+      .join('|');
+  }
+
+  function shouldAutoOpenNotifications(alertas) {
+    var signature = getActiveAlertSignature(alertas);
+    if (!signature) {
+      try { localStorage.removeItem(LS_DISMISSED_ACTIVE_ALERTS); } catch (error) {}
+      return false;
+    }
+
+    try {
+      return localStorage.getItem(LS_DISMISSED_ACTIVE_ALERTS) !== signature;
+    } catch (error) {
+      return true;
+    }
+  }
+
+  function rememberDismissedNotifications(alertas) {
+    var signature = getActiveAlertSignature(alertas);
+    try {
+      if (signature) {
+        localStorage.setItem(LS_DISMISSED_ACTIVE_ALERTS, signature);
+      }
+    } catch (error) {
+      console.warn('No se pudo recordar cierre del panel:', error.message);
+    }
+  }
+
   async function showSystemNotification(alerta) {
     if (!alerta || !('Notification' in window) || Notification.permission !== 'granted') {
       return;
@@ -413,12 +482,11 @@
         canNotifyAlertType(alerta);
     });
 
-    nuevas.forEach(function (alerta) {
-      playAlertTone(alerta.severidad);
-      showSystemNotification(alerta).catch(function () { return null; });
-      rememberNotifiedAlertId(alerta.id);
-      rememberAlertType(alerta);
-    });
+    var alerta = nuevas[0];
+    playAlertTone(alerta.severidad);
+    showSystemNotification(alerta).catch(function () { return null; });
+    rememberNotifiedAlertId(alerta.id);
+    rememberAlertType(alerta);
   }
 
   function openMlResultsModal() {
@@ -609,11 +677,7 @@
 
       renderAlerts(alertas);
 
-      var unread = alertas.filter(function (alerta) {
-        return alerta && alerta.leida !== true;
-      });
-
-      if (unread.length > 0 && navbarNotifMenu) {
+      if (shouldAutoOpenNotifications(alertas) && navbarNotifMenu) {
         navbarNotifMenu.classList.add('open');
         persistNotifMenuState(true);
       }
@@ -729,6 +793,10 @@
           pushBtn.style.display = 'inline-flex';
         }
 
+        if (!navbarNotifMenu.classList.contains('open')) {
+          rememberDismissedNotifications(window.__lastRenderedAlerts || []);
+        }
+
         persistNotifMenuState(navbarNotifMenu.classList.contains('open'));
       });
 
@@ -742,6 +810,7 @@
 
         if (!clickedBell && !clickedMenu) {
           navbarNotifMenu.classList.remove('open');
+          rememberDismissedNotifications(window.__lastRenderedAlerts || []);
           persistNotifMenuState(false);
         }
       });
@@ -853,28 +922,32 @@
 
     var riesgo = String(lectura.riesgo || 'normal').toLowerCase();
     var tagClass = riesgo === 'alto' ? 'tag-alto' : riesgo === 'medio' ? 'tag-medio' : 'tag-normal';
-    var tagText = riesgo === 'alto' ? 'Alto' : riesgo === 'medio' ? 'Medio' : 'Normal';
-    var partes = [];
+    var tagText = riesgo === 'alto' ? 'Amenaza critica' : riesgo === 'medio' ? 'Atencion requerida' : 'Operacion normal';
+    var prob = Number(lectura.probabilidad || 0);
+    var evidencia = [];
+    var recomendacion = 'Mantener monitoreo.';
 
-    partes.push(Number(lectura.llama) === 1 ? 'Se detecta llama.' : 'No se detecta llama.');
-    partes.push('Gas: ' + (lectura.gas || 0) + ' ADC.');
-    partes.push(Number(lectura.movimiento) === 1 ? 'Hay movimiento en el area.' : 'Sin movimiento detectado.');
+    evidencia.push(Number(lectura.llama) === 1 ? 'llama detectada' : 'sin llama');
+    evidencia.push('gas ' + (lectura.gas || 0) + ' ADC');
+    evidencia.push(Number(lectura.movimiento) === 1 ? 'movimiento detectado' : 'sin movimiento');
 
-    if (lectura.prediccion_gas === 'subiendo') {
-      partes.push('El gas va en aumento.');
-    } else if (lectura.prediccion_gas === 'bajando') {
-      partes.push('El gas esta bajando.');
-    } else {
-      partes.push('Gas estable.');
-    }
+    if (lectura.prediccion_gas === 'subiendo') evidencia.push('gas subiendo');
+    if (lectura.prediccion_gas === 'bajando') evidencia.push('gas bajando');
+    if (lectura.anomalia === true) evidencia.push('anomalia ML');
 
-    if (lectura.anomalia === true) {
-      partes.push('Lectura anomala.');
+    if (riesgo === 'alto') {
+      recomendacion = 'Revisa el area de inmediato y corta fuentes de ignicion si es seguro hacerlo.';
+    } else if (riesgo === 'medio') {
+      recomendacion = 'Mantente atento y verifica ventilacion, gas y presencia cercana.';
     }
 
     return '<div class="interp-wrap">' +
       '<span class="tag ' + tagClass + '">' + tagText + '</span>' +
-      '<p class="interp">' + partes.join(' ') + '</p>' +
+      '<div class="interp">' +
+        '<strong>Lectura interpretada:</strong> ' + evidencia.join(' · ') + '.' +
+        '<br><strong>ML:</strong> ' + Math.round(prob * 100) + '% de probabilidad.' +
+        '<br><strong>Que hacer:</strong> ' + recomendacion +
+      '</div>' +
     '</div>';
   }
 
