@@ -372,24 +372,15 @@ async function obtenerEvaluacionAdafruit(limit = 300) {
     const pseudoEvaluacion = calcularEvaluacionModelo(lecturas);
 
     // Obtiene validación real y baseline (Nivel 3 y 1)
-    const { getValidationReport, loadBaseline } = require('./prediction-validation.service');
+    const { getValidationReport, buildBaselineSummary } = require('./prediction-validation.service');
     const reporteValidacion = getValidationReport();
-    const baselineMetrics = loadBaseline();
+    const baseline = buildBaselineSummary();
 
     return {
       ok: true,
       source: 'adafruit-io',
       // Nivel 1: Baseline (métricas de entrenamiento)
-      baseline: baselineMetrics ? {
-        nivel: 'Baseline (Entrenamiento)',
-        descripcion: 'Métricas calculadas del conjunto de validación (20%) durante el entrenamiento del modelo.',
-        accuracy: parseFloat((baselineMetrics.exactitud * 100).toFixed(2)),
-        precision: parseFloat((baselineMetrics.precision * 100).toFixed(2)),
-        sensibilidad: parseFloat((baselineMetrics.sensibilidad * 100).toFixed(2)),
-        f1: parseFloat((baselineMetrics.f1 * 100).toFixed(2)),
-        totalMuestras: baselineMetrics.tamañoDataset || 'N/A',
-        incendiosDetectados: baselineMetrics.distribucionClases?.alto || 'N/A',
-      } : null,
+      baseline,
       // Nivel 2: Pseudo Evaluación (comparación modelo vs heurística)
       pseudoEvaluacion: {
         nivel: 'Pseudo-Evaluación (Tiempo Real)',
@@ -447,3 +438,4 @@ module.exports = {
   obtenerAlertasAdafruit,
   obtenerEvaluacionAdafruit,
 };
+

@@ -19,6 +19,7 @@ const { calcularEvaluacionModelo, esIncendioObservado } = require('../services/m
 const {
   savePredictionConfirmation,
   getValidationReport,
+  buildBaselineSummary,
 } = require('../services/prediction-validation.service');
 const {
   isAdafruitConfigured,
@@ -505,24 +506,14 @@ const obtenerEvaluacionModelo = async (req, res) => {
     const pseudoEvaluacion = calcularEvaluacionModelo(lecturas);
     
     // Nivel 1 y 3: Baseline y Validación Real
-    const { getValidationReport, loadBaseline } = require('../services/prediction-validation.service');
     const reporteValidacion = getValidationReport();
-    const baselineMetrics = loadBaseline();
+    const baseline = buildBaselineSummary();
 
     return res.status(200).json({
       ok: true,
       source: 'firestore',
       // Nivel 1: Baseline (métricas de entrenamiento)
-      baseline: baselineMetrics ? {
-        nivel: 'Baseline (Entrenamiento)',
-        descripcion: 'Métricas calculadas del conjunto de validación (20%) durante el entrenamiento del modelo.',
-        accuracy: parseFloat((baselineMetrics.exactitud * 100).toFixed(2)),
-        precision: parseFloat((baselineMetrics.precision * 100).toFixed(2)),
-        sensibilidad: parseFloat((baselineMetrics.sensibilidad * 100).toFixed(2)),
-        f1: parseFloat((baselineMetrics.f1 * 100).toFixed(2)),
-        totalMuestras: baselineMetrics.tamañoDataset || 'N/A',
-        incendiosDetectados: baselineMetrics.distribucionClases?.alto || 'N/A',
-      } : null,
+      baseline,
       // Nivel 2: Pseudo Evaluación (comparación modelo vs heurística)
       pseudoEvaluacion: {
         nivel: 'Pseudo-Evaluación (Tiempo Real)',
@@ -576,12 +567,38 @@ const obtenerEvaluacionModelo = async (req, res) => {
     });
     const evaluacion = calcularEvaluacionModelo(fallback.lecturas);
     const reporteValidacion = getValidationReport();
+    const baseline = buildBaselineSummary();
+    const realValidation = reporteValidacion.realValidation || {};
 
     return res.status(200).json({
       ok: true,
       degraded: true,
       source: 'runtime-cache',
       warning: 'Evaluacion calculada con cache temporal.',
+      baseline,
+      pseudoEvaluacion: {
+        nivel: 'Pseudo-Evaluacion (Tiempo Real)',
+        descripcion: 'Compara predicciones del modelo contra heuristica usando datos actuales del cache temporal.',
+        totalLecturas: evaluacion.totalEvaluadas || 0,
+        totalIncendios: evaluacion.totalObservadasIncendio || 0,
+        accuracy: parseFloat(((evaluacion.metricas?.exactitud || 0) * 100).toFixed(2)),
+        precision: parseFloat(((evaluacion.metricas?.precision || 0) * 100).toFixed(2)),
+        sensibilidad: parseFloat(((evaluacion.metricas?.sensibilidad || 0) * 100).toFixed(2)),
+        f1: parseFloat(((evaluacion.metricas?.f1 || 0) * 100).toFixed(2)),
+        advertencia: evaluacion.advertencia,
+        matrizConfusion: evaluacion.matriz,
+      },
+      validacionReal: {
+        nivel: 'Validacion Real (Confirmaciones)',
+        descripcion: 'Basada en confirmaciones manuales del usuario marcando predicciones como correctas/incorrectas.',
+        totalConfirmaciones: realValidation.totalConfirmaciones || 0,
+        correctas: realValidation.correctas || 0,
+        incorrectas: realValidation.incorrectas || 0,
+        accuracy: realValidation.precisionReal || 0,
+        degradacion: realValidation.degradacion,
+        estado: realValidation.estado,
+        message: realValidation.message,
+      },
       evaluacion,
       reporteValidacion,
       lecturas: fallback.lecturas.slice(0, 20).map((lectura) => ({
@@ -678,3 +695,4 @@ module.exports = {
   obtenerReporteValidacion,
   subscribeLecturasStream,
 };
+

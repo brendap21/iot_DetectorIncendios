@@ -47,12 +47,65 @@ function loadBaseline() {
 
     const content = fs.readFileSync(BASELINE_FILE, 'utf-8');
     _baselineMetrics = JSON.parse(content);
-    logger.info(`Loaded baseline metrics (accuracy: ${(_baselineMetrics.accuracy * 100).toFixed(2)}%)`);
+    const accuracy = pickNumber(_baselineMetrics, ['exactitud', 'accuracy']);
+    logger.info(`Loaded baseline metrics (accuracy: ${asPercent(accuracy) ?? 'N/A'}%)`);
     return _baselineMetrics;
   } catch (err) {
     logger.error('Failed to load baseline.json', err.message);
     return null;
   }
+}
+
+function pickNumber(source, keys) {
+  if (!source) return null;
+
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function asRate(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return value > 1 ? value / 100 : value;
+}
+
+function asPercent(value) {
+  const rate = asRate(value);
+  return rate === null ? null : parseFloat((rate * 100).toFixed(2));
+}
+
+function getBaselineAccuracyRate(baseline) {
+  return asRate(pickNumber(baseline, ['exactitud', 'accuracy']));
+}
+
+function buildBaselineSummary() {
+  const baseline = loadBaseline();
+  if (!baseline) return null;
+
+  const accuracy = pickNumber(baseline, ['exactitud', 'accuracy']);
+  const precision = pickNumber(baseline, ['precision']);
+  const sensibilidad = pickNumber(baseline, ['sensibilidad', 'recall']);
+  const f1 = pickNumber(baseline, ['f1', 'f1Score']);
+
+  return {
+    nivel: 'Baseline (Entrenamiento)',
+    descripcion: baseline.proposito
+      || 'Metricas calculadas del conjunto de validacion durante el entrenamiento del modelo.',
+    accuracy: asPercent(accuracy),
+    precision: asPercent(precision),
+    sensibilidad: asPercent(sensibilidad),
+    recall: asPercent(sensibilidad),
+    f1: asPercent(f1),
+    totalMuestras: baseline['tamañoDataset'] || baseline.datasetSize || 'N/A',
+    incendiosDetectados: baseline.distribucionClases?.alto ?? 'N/A',
+    matrizConfusion: baseline.matrizConfusion || null,
+    exportadoEn: baseline.exportadoEn || baseline.exportedAt || null,
+  };
 }
 
 /**
@@ -161,8 +214,9 @@ function calculateRealValidation(limit = 100) {
 
   // Compare to baseline
   const baseline = loadBaseline();
-  const degradation = baseline
-    ? accuracy - baseline.accuracy
+  const baselineAccuracy = getBaselineAccuracyRate(baseline);
+  const degradation = baselineAccuracy !== null
+    ? accuracy - baselineAccuracy
     : null;
 
   return {
@@ -170,8 +224,8 @@ function calculateRealValidation(limit = 100) {
     correctas: correctCount,
     incorrectas: recent.length - correctCount,
     precisionReal: parseFloat((accuracy * 100).toFixed(2)),
-    ...(baseline && {
-      baselineAccuracy: parseFloat((baseline.accuracy * 100).toFixed(2)),
+    ...(baselineAccuracy !== null && {
+      baselineAccuracy: parseFloat((baselineAccuracy * 100).toFixed(2)),
       degradacion: parseFloat((degradation * 100).toFixed(2)),
       estado: degradation < -0.05
         ? 'ALERTA: Modelo degradado significativamente'
@@ -189,17 +243,18 @@ function calculateRealValidation(limit = 100) {
  * @returns {object}
  */
 function getValidationReport() {
-  const baseline = loadBaseline();
+  const baselineSummary = buildBaselineSummary();
   const realValidation = calculateRealValidation();
 
   return {
-    baseline: baseline ? {
-      accuracy: parseFloat((baseline.accuracy * 100).toFixed(2)),
-      precision: parseFloat((baseline.precision * 100).toFixed(2)),
-      recall: parseFloat((baseline.recall * 100).toFixed(2)),
-      f1: parseFloat((baseline.f1 * 100).toFixed(2)),
-      exportedAt: baseline.exportedAt,
-      testSetSize: baseline.datasetSize,
+    baseline: baselineSummary ? {
+      accuracy: baselineSummary.accuracy,
+      precision: baselineSummary.precision,
+      recall: baselineSummary.recall,
+      sensibilidad: baselineSummary.sensibilidad,
+      f1: baselineSummary.f1,
+      exportedAt: baselineSummary.exportadoEn,
+      testSetSize: baselineSummary.totalMuestras,
     } : null,
     realValidation,
     totalValidationsRecorded: _validations.length,
@@ -250,4 +305,6 @@ module.exports = {
   calculateRealValidation,
   getValidationReport,
   loadBaseline,
+  buildBaselineSummary,
 };
+

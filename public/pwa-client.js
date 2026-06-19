@@ -692,8 +692,7 @@
 
   // Formato para valores que ya están en porcentaje (99.15)
   function formatMetricPercentage(value) {
-    if (typeof value !== 'number') return 'Sin datos';
-    if (value === null || value === undefined) return 'Sin datos';
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 'Sin datos';
     return value.toFixed(1) + '%';
   }
 
@@ -810,7 +809,8 @@
     var data = await fetchJson('/api/sensores/ml/evaluacion?limit=300', { cache: 'no-store' });
     
     // Renderiza las 3 pestañas
-    renderBaselineTab(data.baseline);
+    var baselineData = data.baseline || (data.reporteValidacion && data.reporteValidacion.baseline);
+    renderBaselineTab(baselineData);
     renderPseudoTab(data.pseudoEvaluacion);
     renderRealTab(data.validacionReal);
     
@@ -835,7 +835,14 @@
 
   function renderBaselineTab(baseline) {
     var container = document.getElementById('mlBaselineContent');
-    if (!container || !baseline) return;
+    if (!container) return;
+
+    if (!baseline) {
+      container.innerHTML = '<div class="ml-note">No se encontro baseline.json. Ejecuta el entrenamiento para generar las metricas base.</div>';
+      return;
+    }
+
+    var sensibilidad = typeof baseline.sensibilidad === 'number' ? baseline.sensibilidad : baseline.recall;
 
     var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">';
     
@@ -851,7 +858,7 @@
     
     html += '<div class="ml-metric-card">';
     html += '<div class="ml-metric-label">Sensibilidad (Recall)</div>';
-    html += '<div class="ml-metric-value">' + formatMetricPercentage(baseline.sensibilidad) + '</div>';
+    html += '<div class="ml-metric-value">' + formatMetricPercentage(sensibilidad) + '</div>';
     html += '</div>';
     
     html += '<div class="ml-metric-card">';
