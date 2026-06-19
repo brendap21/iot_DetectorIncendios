@@ -13,8 +13,7 @@ const {
   isAdafruitConfigured,
   obtenerAlertasAdafruit,
 } = require('../services/adafruit-io.service');
-
-const alertasLeidasAdafruit = new Set();
+const alertState = require('../services/alert-state.service');
 
 function parseBooleanQuery(value) {
   if (value === undefined) return null;
@@ -89,7 +88,7 @@ const obtenerAlertasRecientes = async (req, res) => {
       });
       const alertas = (resultado.alertas || []).map((alerta) => ({
         ...alerta,
-        leida: alertasLeidasAdafruit.has(alerta.id),
+        leida: alertState.isAlertRead(alerta.id),
       })).filter((alerta) => leidaFiltro === null || alerta.leida === leidaFiltro);
 
       return res.status(200).json({
@@ -159,15 +158,14 @@ const obtenerAlertasRecientes = async (req, res) => {
 const marcarAlertaLeida = async (req, res) => {
   if (isAdafruitConfigured()) {
     if (req.params && req.params.id) {
-      alertasLeidasAdafruit.add(req.params.id);
+      alertState.markAlertRead(req.params.id);
     }
 
     return res.status(200).json({
       ok: true,
       id: req.params && req.params.id,
       leida: true,
-      volatile: true,
-      message: 'Alerta derivada de Adafruit IO marcada como leida solo en el cliente.',
+      persisted: true,
     });
   }
 

@@ -4,6 +4,9 @@ const path = require("path");
 const admin = require("firebase-admin");
 const logger = require('./logger');
 
+const firebaseDisabled = process.env.FIREBASE_ENABLED === 'false'
+  || (process.env.AIO_USERNAME && process.env.AIO_KEY && process.env.FIREBASE_ENABLED !== 'true');
+
 function normalizePrivateKey(privateKey) {
   if (typeof privateKey !== 'string') {
     return '';
@@ -94,15 +97,19 @@ let db = null;
 let firebaseInitError = null;
 let firebaseReady = false;
 
-const serviceAccount = loadServiceAccount();
+const serviceAccount = firebaseDisabled ? null : loadServiceAccount();
 
-logger.info('Firebase credential sources available', {
-  hasProjectId: Boolean(process.env.FIREBASE_PROJECT_ID),
-  hasClientEmail: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
-  hasPrivateKey: Boolean(process.env.FIREBASE_PRIVATE_KEY),
-  hasServiceAccountJson: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
-  hasGoogleAppCreds: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
-});
+if (firebaseDisabled) {
+  logger.info('Firebase deshabilitado: Adafruit IO es el proveedor principal de datos.');
+} else {
+  logger.info('Firebase credential sources available', {
+    hasProjectId: Boolean(process.env.FIREBASE_PROJECT_ID),
+    hasClientEmail: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
+    hasPrivateKey: Boolean(process.env.FIREBASE_PRIVATE_KEY),
+    hasServiceAccountJson: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    hasGoogleAppCreds: Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+  });
+}
 
 // Initialize Firebase asynchronously in background (don't block server startup)
 async function initializeFirebaseAsync() {
@@ -151,17 +158,19 @@ async function initializeFirebaseAsync() {
   }
 }
 
-// Start Firebase initialization in background (non-blocking)
-initializeFirebaseAsync().catch((err) => {
-  logger.error('Unexpected error in Firebase background init:', err);
-});
+if (!firebaseDisabled) {
+  // Start Firebase initialization in background (non-blocking)
+  initializeFirebaseAsync().catch((err) => {
+    logger.error('Unexpected error in Firebase background init:', err);
+  });
 
-// Give Firebase a max of 10 seconds to initialize, then proceed anyway
-setTimeout(() => {
-  if (!firebaseReady) {
-    logger.warn('Firebase initialization timeout (10s), proceeding with degraded mode');
-  }
-}, 10000);
+  // Give Firebase a max of 10 seconds to initialize, then proceed anyway
+  setTimeout(() => {
+    if (!firebaseReady) {
+      logger.warn('Firebase initialization timeout (10s), proceeding with degraded mode');
+    }
+  }, 10000);
+}
 
 module.exports = {
   db,
