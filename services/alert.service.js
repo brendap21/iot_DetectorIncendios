@@ -18,6 +18,28 @@ const COOLDOWN_MS = {
   tendencia_gas_subiendo: 30000,
 };
 
+function inferirProbabilidadML(lectura) {
+  const probabilidadDirecta = Number(lectura && lectura.probabilidad);
+  if (Number.isFinite(probabilidadDirecta) && probabilidadDirecta >= 0) {
+    return Math.min(Math.max(probabilidadDirecta, 0), 1);
+  }
+
+  const riesgo = String(lectura && lectura.riesgo || '').toLowerCase();
+  if (riesgo === 'alto') {
+    return 0.82;
+  }
+
+  if (riesgo === 'medio') {
+    return 0.58;
+  }
+
+  if (lectura && lectura.alerta === true) {
+    return 0.8;
+  }
+
+  return 0.12;
+}
+
 function promedioGas(lecturas) {
   if (!Array.isArray(lecturas) || lecturas.length === 0) {
     return null;
@@ -38,7 +60,7 @@ function promedioGas(lecturas) {
 function evaluarAlertas({ lectura, ultimasLecturas }) {
   const alertas = [];
   const gasPromedioReciente = promedioGas(ultimasLecturas);
-  const probabilidad = Number(lectura.probabilidad || 0);
+  const probabilidad = inferirProbabilidadML(lectura);
 
   if (lectura.riesgo === 'alto' || lectura.alerta === true) {
     alertas.push({

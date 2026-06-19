@@ -35,6 +35,9 @@ function saveLectura(lectura) {
     riesgo: lectura.riesgo || 'normal',
     anomalia: Boolean(lectura.anomalia),
     prediccion_gas: lectura.prediccion_gas || 'estable',
+    probabilidad: Number.isFinite(Number(lectura.probabilidad)) ? Number(lectura.probabilidad) : null,
+    alerta: typeof lectura.alerta === 'boolean' ? lectura.alerta : null,
+    nivel: typeof lectura.nivel === 'string' ? lectura.nivel : null,
     incendioReal: typeof lectura.incendioReal === 'boolean' ? lectura.incendioReal : null,
     validadoEn: toIso(lectura.validadoEn) || null,
   };

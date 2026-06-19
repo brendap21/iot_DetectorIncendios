@@ -91,10 +91,17 @@
   }
 
   function rowHtml(item) {
-    var llamaTxt = item.llama === 1 ? 'Si' : 'No';
-    var movTxt = item.movimiento === 1 ? 'Si' : 'No';
+    var llamaTxt = item.llama === 1 ? 'Detectada' : 'Sin llama';
+    var movTxt = item.movimiento === 1 ? 'Detectado' : 'Sin presencia';
     var anomaliaTxt = item.anomalia === true ? 'Si' : item.anomalia === false ? 'No' : '-';
-    var tendencia = item.prediccion_gas || '-';
+    var tendenciaRaw = String(item.prediccion_gas || '').toLowerCase();
+    var tendencia = tendenciaRaw === 'subiendo'
+      ? 'Subiendo'
+      : tendenciaRaw === 'bajando'
+        ? 'Bajando'
+        : tendenciaRaw === 'estable'
+          ? 'Estable'
+          : '-';
 
     return '<tr>' +
       '<td data-label="Fecha">' + formatDate(item.fecha) + '</td>' +
@@ -217,12 +224,19 @@
 
   function toPdfLine(item) {
     var fecha = formatDate(item.fecha);
-    var llama = item.llama === 1 ? 'SI' : 'NO';
-    var mov = item.movimiento === 1 ? 'SI' : 'NO';
+    var llama = item.llama === 1 ? 'DETECTADA' : 'SIN LLAMA';
+    var mov = item.movimiento === 1 ? 'DETECTADO' : 'SIN PRESENCIA';
     var riesgo = (item.riesgo || 'normal').toUpperCase();
     var an = item.anomalia === true ? 'SI' : 'NO';
     var gas = Number.isFinite(Number(item.gas)) ? Number(item.gas) : '-';
-    var tendencia = item.prediccion_gas || '-';
+    var tendenciaRaw = String(item.prediccion_gas || '').toLowerCase();
+    var tendencia = tendenciaRaw === 'subiendo'
+      ? 'SUBIENDO'
+      : tendenciaRaw === 'bajando'
+        ? 'BAJANDO'
+        : tendenciaRaw === 'estable'
+          ? 'ESTABLE'
+          : '-';
 
     return fecha + ' | Llama:' + llama + ' | Gas:' + gas + ' | Mov:' + mov + ' | Riesgo:' + riesgo + ' | Anom:' + an + ' | Tend:' + tendencia;
   }

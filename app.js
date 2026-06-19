@@ -409,9 +409,10 @@ function renderResultadosPage(lecturas, meta) {
       scroll-margin-top: 136px;
     }
     .section-hint {
-      font-size: 12px;
-      color: #667;
-      margin: -6px 0 10px;
+      font-size: 13px;
+      color: #55607f;
+      margin: -4px 0 12px;
+      line-height: 1.45;
     }
 
     /* ---- section titles ---- */
@@ -421,7 +422,7 @@ function renderResultadosPage(lecturas, meta) {
     /* ---- sensor cards ---- */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 14px;
     }
     .card {
@@ -434,8 +435,35 @@ function renderResultadosPage(lecturas, meta) {
     .card .c-label { font-size: 12px; color: #888; margin-bottom: 6px; }
     .card .c-value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
     .card .c-unit  { font-size: 12px; color: #aaa; margin-top: 2px; }
+    .card .c-help  { font-size: 12px; color: #5f6780; margin-top: 8px; line-height: 1.35; }
     .card.alerta   { border-color: #e74c3c; background: #fff5f5; }
     .card.alerta .c-value { color: #c0392b; }
+
+    .reading-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin: 12px 0 4px;
+    }
+    .reading-legend article {
+      background: #f8faff;
+      border: 1px solid #d8e1f3;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .reading-legend strong {
+      display: block;
+      color: #243252;
+      font-size: 12px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .reading-legend span {
+      color: #526083;
+      font-size: 12px;
+      line-height: 1.4;
+    }
 
     /* ---- interpretacion ---- */
     .interp-wrap {
@@ -529,6 +557,37 @@ function renderResultadosPage(lecturas, meta) {
       letter-spacing: 0.03em;
       margin-bottom: 10px;
       text-transform: uppercase;
+    }
+    .chart-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      background: #f8faff;
+      border: 1px solid #d9deec;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .chart-controls .filter {
+      min-width: 140px;
+    }
+    .chart-controls .btn {
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+    .chart-help {
+      font-size: 12px;
+      color: #526083;
+      margin-bottom: 10px;
+      line-height: 1.45;
+    }
+    .chart-viewport-label {
+      margin-left: auto;
+      font-size: 12px;
+      color: #4a5678;
+      font-weight: 700;
     }
     .chart-card canvas {
       display: block;
@@ -856,6 +915,16 @@ function renderResultadosPage(lecturas, meta) {
     .alerts-panel li.high { border-left-color: #d68910; }
     .alerts-panel li.critical { border-left-color: #c0392b; }
     .alerts-panel .meta { color: #667; font-size: 12px; }
+    .alerts-help {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid #d8e1f3;
+      background: #f7faff;
+      border-radius: 8px;
+      color: #4f5d80;
+      font-size: 12px;
+      line-height: 1.45;
+    }
     .alert-top {
       display: flex;
       justify-content: space-between;
@@ -1124,7 +1193,7 @@ function renderResultadosPage(lecturas, meta) {
   <header>
     <div class="header-left">
       <h1>Monitor IoT — Detector de Incendios</h1>
-      <span>Actualiza cada 1 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+      <span>Panel en tiempo real para llama, gas, movimiento y riesgo · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
     </div>
     <div class="header-right">
       <button id="navbarEnablePushBtn" class="btn btn-primary">Activar notificaciones</button>
@@ -1151,29 +1220,48 @@ function renderResultadosPage(lecturas, meta) {
     </nav>
 
     <section id="sec-resumen" class="section">
-    <h2>Ultima lectura</h2>
-    <p class="section-hint">Vista rapida del estado actual de sensores.</p>
+    <h2>Resumen actual</h2>
+    <p class="section-hint">Aqui ves el estado actual del detector con un lenguaje sencillo: que detecta cada sensor y que nivel de riesgo sugiere el analisis.</p>
     <div class="cards">
       <div class="card ${ultima && ultima.llama === 1 ? 'alerta' : ''}">
-        <div class="c-label">Llama</div>
-        <div class="c-value" id="cardLlamaValue">${ultima ? (ultima.llama === 1 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-label">Sensor de llama</div>
+        <div class="c-value" id="cardLlamaValue">${ultima ? (ultima.llama === 1 ? 'Detectada' : 'Sin llama') : '-'}</div>
         <div class="c-unit">KY-026</div>
+        <div class="c-help">Indica si el sensor detecta una fuente de fuego.</div>
       </div>
       <div class="card">
-        <div class="c-label">Gas</div>
+        <div class="c-label">Concentracion de gas</div>
         <div class="c-value" id="cardGasValue">${ultima ? ultima.gas : '-'}</div>
         <div class="c-unit">ADC (0-4095)</div>
+        <div class="c-help">Valores altos pueden indicar humo, combustion o fuga.</div>
       </div>
       <div class="card">
-        <div class="c-label">Movimiento</div>
-        <div class="c-value" id="cardMovimientoValue">${ultima ? (ultima.movimiento === 1 ? 'Si' : 'No') : '-'}</div>
+        <div class="c-label">Presencia / movimiento</div>
+        <div class="c-value" id="cardMovimientoValue">${ultima ? (ultima.movimiento === 1 ? 'Detectado' : 'Sin presencia') : '-'}</div>
         <div class="c-unit">PIR</div>
+        <div class="c-help">Ayuda a saber si hay actividad cerca del detector.</div>
       </div>
       <div class="card">
-        <div class="c-label">Lecturas cargadas</div>
+        <div class="c-label">Lecturas visibles</div>
         <div class="c-value" id="cardCountValue">${meta.count}</div>
         <div class="c-unit">ultimas 30</div>
+        <div class="c-help">Cantidad de registros usados para tablas y graficas.</div>
       </div>
+    </div>
+
+    <div class="reading-legend">
+      <article>
+        <strong>Riesgo normal</strong>
+        <span>Operacion estable. Mantener monitoreo.</span>
+      </article>
+      <article>
+        <strong>Riesgo medio</strong>
+        <span>Condicion a vigilar. Conviene revisar ventilacion y entorno.</span>
+      </article>
+      <article>
+        <strong>Riesgo alto</strong>
+        <span>Posible amenaza. Revisar el area de inmediato con precaucion.</span>
+      </article>
     </div>
 
     <div class="status-row">
@@ -1187,44 +1275,58 @@ function renderResultadosPage(lecturas, meta) {
       </div>
     </div>
 
-    <h2>Analisis ML</h2>
-    <p class="section-hint">Interpretacion automatica y acciones de monitoreo.</p>
+    <h2>Interpretacion inteligente</h2>
+    <p class="section-hint">El modelo combina llama, gas y movimiento para explicar el estado actual y sugerir acciones claras.</p>
     <div class="actions">
       <div class="actions-row">
-        <button id="mlResultsBtn" class="btn btn-primary" type="button">Ver resultados ML</button>
-        <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar Web App</button>
+        <button id="mlResultsBtn" class="btn btn-primary" type="button">Ver detalle del analisis</button>
+        <button id="installAppBtn" class="btn btn-secondary" disabled>Instalar app en el celular</button>
       </div>
       <div class="filters-row">
         <select id="severityFilter" class="filter" aria-label="Filtrar severidad">
-          <option value="all">Todas las severidades</option>
-          <option value="critical">Solo criticas</option>
-          <option value="high">Solo altas</option>
-          <option value="medium">Solo medias</option>
+          <option value="all">Todas</option>
+          <option value="critical">Criticas</option>
+          <option value="high">Altas</option>
+          <option value="medium">Medias</option>
         </select>
         <label class="filter-check" for="onlyUnreadAlerts">
           <input id="onlyUnreadAlerts" type="checkbox" />
-          Solo no leidas
+          Solo pendientes
         </label>
       </div>
     </div>
     </section>
 
     <section id="sec-alertas" class="section">
-    <h2>Alertas recientes</h2>
-    <p class="section-hint">Lista de eventos recientes. Puedes marcarlos como leidos.</p>
+    <h2>Alertas y acciones sugeridas</h2>
+    <p class="section-hint">Cada alerta incluye que paso y que hacer. Marca una alerta como atendida cuando ya la revisaste.</p>
     <div class="alerts-panel">
       <ul id="alertsList">
         <li><strong>Sin alertas nuevas</strong><div class="meta">Activa notificaciones para recibir eventos en tu celular.</div></li>
       </ul>
+      <div class="alerts-help">Consejo: activa notificaciones para recibir aviso inmediato cuando el modelo detecte riesgo alto o probabilidad elevada de incendio.</div>
     </div>
     </section>
 
     <section id="sec-grafica" class="section">
-    <h2>Graficas de sensores</h2>
-    <p class="section-hint">Visualizacion dinamica de gas, incendios y movimiento.</p>
+    <h2>Graficas de comportamiento</h2>
+    <p class="section-hint">Explora la evolucion de cada parametro. Puedes mover la ventana, acercar/alejar y navegar en el tiempo.</p>
+    <div class="chart-help">Tip: usa el scroll del mouse para hacer zoom horizontal y arrastra para desplazarte por la grafica.</div>
+    <div class="chart-controls">
+      <select id="chartWindowSize" class="filter" aria-label="Rango visible en graficas">
+        <option value="15">Ultimos 15 puntos</option>
+        <option value="30" selected>Ultimos 30 puntos</option>
+        <option value="60">Ultimos 60 puntos</option>
+        <option value="all">Todos</option>
+      </select>
+      <button id="chartOlderBtn" class="btn btn-secondary" type="button">Ir al pasado</button>
+      <button id="chartNewerBtn" class="btn btn-secondary" type="button">Volver al presente</button>
+      <button id="chartResetZoomBtn" class="btn btn-secondary" type="button">Restablecer zoom</button>
+      <span id="chartViewportLabel" class="chart-viewport-label">0 de 0 puntos visibles</span>
+    </div>
     <div class="charts-grid">
       <div class="chart-card">
-        <div class="chart-header">Gas en el tiempo</div>
+        <div class="chart-header">Evolucion de gas</div>
         <canvas id="gasChart"
           data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
           data-gas='${JSON.stringify(lecturas.slice().reverse().map(l => l.gas ?? null))}'
@@ -1232,14 +1334,14 @@ function renderResultadosPage(lecturas, meta) {
         ></canvas>
       </div>
       <div class="chart-card">
-        <div class="chart-header">Incendio binario</div>
+        <div class="chart-header">Deteccion de llama</div>
         <canvas id="fireChart"
           data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
           data-fire='${JSON.stringify(lecturas.slice().reverse().map(l => l.llama === 1 ? 1 : 0))}'
         ></canvas>
       </div>
       <div class="chart-card">
-        <div class="chart-header">Movimiento binario</div>
+        <div class="chart-header">Deteccion de movimiento</div>
         <canvas id="movementChart"
           data-labels='${JSON.stringify(lecturas.slice().reverse().map(l => l.fecha ? new Date(l.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "America/Mexico_City" }) : ""))}'
           data-movement='${JSON.stringify(lecturas.slice().reverse().map(l => l.movimiento === 1 ? 1 : 0))}'
@@ -1249,22 +1351,22 @@ function renderResultadosPage(lecturas, meta) {
     </section>
 
     <section id="sec-historial" class="section">
-    <h2>Historial</h2>
-    <p class="section-hint">Filtra, revisa y exporta todas las lecturas.</p>
+    <h2>Historial completo</h2>
+    <p class="section-hint">Filtra los registros por riesgo, presencia, llama o anomalia para analizar eventos pasados y exportarlos en PDF.</p>
     <div class="history-tools">
       <select id="historyRiskFilter" class="filter" aria-label="Filtrar riesgo en historial">
         <option value="all">Riesgo: todos</option>
-        <option value="normal">Riesgo normal</option>
-        <option value="medio">Riesgo medio</option>
-        <option value="alto">Riesgo alto</option>
+        <option value="normal">Riesgo: normal</option>
+        <option value="medio">Riesgo: medio</option>
+        <option value="alto">Riesgo: alto</option>
       </select>
       <select id="historyMovimientoFilter" class="filter" aria-label="Filtrar movimiento en historial">
-        <option value="all">Movimiento: todos</option>
-        <option value="1">Con movimiento</option>
-        <option value="0">Sin movimiento</option>
+        <option value="all">Presencia: todas</option>
+        <option value="1">Con presencia</option>
+        <option value="0">Sin presencia</option>
       </select>
       <select id="historyLlamaFilter" class="filter" aria-label="Filtrar llama en historial">
-        <option value="all">Llama: todos</option>
+        <option value="all">Llama: todas</option>
         <option value="1">Con llama</option>
         <option value="0">Sin llama</option>
       </select>
@@ -1273,7 +1375,7 @@ function renderResultadosPage(lecturas, meta) {
         <option value="true">Solo anomalia</option>
         <option value="false">Sin anomalia</option>
       </select>
-      <button id="downloadHistoryPdfBtn" class="btn btn-secondary wide">Descargar todo en PDF</button>
+      <button id="downloadHistoryPdfBtn" class="btn btn-secondary wide">Descargar historial en PDF</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -1307,6 +1409,7 @@ function renderResultadosPage(lecturas, meta) {
   </footer>
   <!-- Chart.js from jsDelivr (allowed by CSP) and the chart init script served from /public -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="/gas-chart.js"></script>
   <script src="/pwa-client.js"></script>
@@ -1350,6 +1453,9 @@ app.get('/resultados', async (req, res, next) => {
         riesgo:        data.riesgo        ?? null,
         anomalia:      data.anomalia      ?? null,
         prediccion_gas: data.prediccion_gas ?? null,
+        probabilidad: Number.isFinite(Number(data.probabilidad)) ? Number(data.probabilidad) : null,
+        alerta: typeof data.alerta === 'boolean' ? data.alerta : null,
+        nivel: typeof data.nivel === 'string' ? data.nivel : null,
       };
     });
 

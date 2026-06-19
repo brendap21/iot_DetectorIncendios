@@ -101,6 +101,16 @@ const guardarLectura = async (req, res) => {
     logger.info('Request body completo', req.body);
 
     const { llama, gas, movimiento } = req.body;
+    const payloadProbabilidad = Number(req.body && req.body.probabilidad);
+    const payloadProbabilidadValida = Number.isFinite(payloadProbabilidad)
+      ? Math.min(Math.max(payloadProbabilidad, 0), 1)
+      : null;
+    const payloadAlerta = req.body && typeof req.body.alerta === 'boolean'
+      ? req.body.alerta
+      : null;
+    const payloadNivel = req.body && typeof req.body.nivel === 'string'
+      ? req.body.nivel.trim()
+      : null;
 
     // Fetch recent readings before saving so the new reading is not included
     // in its own trend calculation.
@@ -130,6 +140,9 @@ const guardarLectura = async (req, res) => {
       riesgo,
       anomalia,
       prediccion_gas,
+      probabilidad: payloadProbabilidadValida,
+      alerta: payloadAlerta,
+      nivel: payloadNivel,
     };
 
     const doc = await db.collection('lecturas').add(lectura);
@@ -183,6 +196,8 @@ const guardarLectura = async (req, res) => {
       riesgo,
       anomalia,
       prediccion_gas,
+      probabilidad: lectura.probabilidad,
+      alerta: lectura.alerta,
       fecha: lectura.fecha.toISOString(),
     });
 
@@ -223,6 +238,9 @@ const guardarLectura = async (req, res) => {
           riesgo: 'normal',
           anomalia: false,
           prediccion_gas: 'estable',
+          probabilidad: payloadProbabilidadValida,
+          alerta: payloadAlerta,
+          nivel: payloadNivel,
         };
 
         runtimeStore.saveLectura(lecturaMem);
@@ -315,6 +333,9 @@ const obtenerLecturasRecientes = async (req, res) => {
           riesgo: data.riesgo,
           anomalia: data.anomalia,
           prediccion_gas: data.prediccion_gas,
+          probabilidad: Number.isFinite(Number(data.probabilidad)) ? Number(data.probabilidad) : null,
+          alerta: typeof data.alerta === 'boolean' ? data.alerta : null,
+          nivel: typeof data.nivel === 'string' ? data.nivel : null,
           incendioReal: typeof data.incendioReal === 'boolean' ? data.incendioReal : null,
           validadoEn: data.validadoEn && typeof data.validadoEn.toDate === 'function'
             ? data.validadoEn.toDate().toISOString()
@@ -438,6 +459,9 @@ function normalizarDocLectura(doc) {
     riesgo: data.riesgo || 'normal',
     anomalia: Boolean(data.anomalia),
     prediccion_gas: data.prediccion_gas || 'estable',
+    probabilidad: Number.isFinite(Number(data.probabilidad)) ? Number(data.probabilidad) : null,
+    alerta: typeof data.alerta === 'boolean' ? data.alerta : null,
+    nivel: typeof data.nivel === 'string' ? data.nivel : null,
     incendioObservado: esIncendioObservado(data),
   };
 }

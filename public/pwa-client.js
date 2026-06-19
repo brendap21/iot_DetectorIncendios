@@ -27,6 +27,7 @@
   var LS_DISMISSED_ACTIVE_ALERTS = 'iot.dismissedActiveAlerts.v1';
   var audioUnlocked = false;
   var audioCtx = null;
+  var lecturasEventSource = null;
 
   function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -222,10 +223,10 @@
   }
 
   function severityLabel(severity) {
-    if (severity === 'critical') return 'Critica';
-    if (severity === 'high') return 'Alta';
-    if (severity === 'medium') return 'Media';
-    return 'Aviso';
+    if (severity === 'critical') return 'Riesgo critico';
+    if (severity === 'high') return 'Riesgo alto';
+    if (severity === 'medium') return 'Riesgo medio';
+    return 'Aviso preventivo';
   }
 
   function renderAlertItems(items, compact) {
@@ -237,11 +238,11 @@
       var sev = a.severidad || 'medium';
       a.tipo = severityLabel(sev);
       var fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : 'Sin fecha';
-      var estado = a.leida ? 'Atendida' : 'Activa';
+      var estado = a.leida ? 'Atendida' : 'Pendiente';
       var estadoClass = a.leida ? 'badge-state read' : 'badge-state';
       var btn = a.leida
-        ? '<button class="btn-mark-read" disabled>Atendida</button>'
-        : '<button class="btn-mark-read" data-alert-id="' + escapeHtml(a.id) + '">Entendido</button>';
+        ? '<button class="btn-mark-read" disabled>Ya revisada</button>'
+        : '<button class="btn-mark-read" data-alert-id="' + escapeHtml(a.id) + '">Marcar como revisada</button>';
       var compactStyle = compact ? ' style="margin-bottom:2px;"' : '';
       var evidencia = Array.isArray(a.evidencia) && a.evidencia.length > 0
         ? '<div class="alert-evidence">' + a.evidencia.map(function (item) {
@@ -332,6 +333,17 @@
     } catch (error) {
       return [];
     }
+  }
+
+  function buildAlertNotificationToken(alerta) {
+    if (!alerta) {
+      return '';
+    }
+
+    var id = alerta.id || alerta.tipo || 'sin-id';
+    var marca = alerta.lastSeen || alerta.fecha || '';
+    var severidad = alerta.severidad || 'medium';
+    return id + '|' + marca + '|' + severidad;
   }
 
   function rememberNotifiedAlertId(id) {
@@ -474,19 +486,56 @@
     var nuevas = alertas.filter(function (alerta) {
       var fechaMs = alerta && alerta.fecha ? Date.parse(alerta.fecha) : now;
       var reciente = Number.isFinite(fechaMs) ? (now - fechaMs) <= 45000 : true;
+      var token = buildAlertNotificationToken(alerta);
       return alerta &&
-        alerta.id &&
+        token &&
         alerta.leida !== true &&
         reciente &&
-        notified.indexOf(alerta.id) === -1 &&
+        notified.indexOf(token) === -1 &&
         canNotifyAlertType(alerta);
     });
 
     var alerta = nuevas[0];
+    if (!alerta) {
+      return;
+    }
+
+    var notificationToken = buildAlertNotificationToken(alerta);
     playAlertTone(alerta.severidad);
     showSystemNotification(alerta).catch(function () { return null; });
-    rememberNotifiedAlertId(alerta.id);
+    rememberNotifiedAlertId(notificationToken);
     rememberAlertType(alerta);
+  }
+
+  function setupLecturasStream() {
+    if (!window.EventSource) {
+      return;
+    }
+
+    try {
+      if (lecturasEventSource) {
+        lecturasEventSource.close();
+      }
+
+      lecturasEventSource = new EventSource('/api/sensores/stream');
+      lecturasEventSource.addEventListener('lectura', function () {
+        refreshDashboard().catch(function () { return null; });
+        refreshAlerts().catch(function () { return null; });
+      });
+
+      lecturasEventSource.onerror = function () {
+        if (lecturasEventSource) {
+          lecturasEventSource.close();
+          lecturasEventSource = null;
+        }
+
+        setTimeout(function () {
+          setupLecturasStream();
+        }, 3000);
+      };
+    } catch (error) {
+      console.warn('No se pudo inicializar stream de lecturas:', error.message);
+    }
   }
 
   function openMlResultsModal() {
@@ -869,9 +918,9 @@
         var interpretationBlock = document.getElementById('interpretationBlock');
         var lastUpdatedTime = document.getElementById('lastUpdatedTime');
 
-        if (cardLlamaValue) cardLlamaValue.textContent = Number(lastReading.llama) === 1 ? 'Si' : 'No';
+        if (cardLlamaValue) cardLlamaValue.textContent = Number(lastReading.llama) === 1 ? 'Detectada' : 'Sin llama';
         if (cardGasValue) cardGasValue.textContent = String(lastReading.gas || 0);
-        if (cardMovimientoValue) cardMovimientoValue.textContent = Number(lastReading.movimiento) === 1 ? 'Si' : 'No';
+        if (cardMovimientoValue) cardMovimientoValue.textContent = Number(lastReading.movimiento) === 1 ? 'Detectado' : 'Sin presencia';
         if (cardCountValue) cardCountValue.textContent = (lecturas.length || 0) + '';
         if (interpretationBlock) {
           interpretationBlock.innerHTML = interpretarLectura(lastReading);
@@ -969,6 +1018,7 @@
 
     await checkPushAvailability();
     await syncPushUiState();
+    setupLecturasStream();
 
     if (pushBtn) {
       pushBtn.addEventListener('click', function () {
@@ -1009,10 +1059,10 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshDashboard().catch(function () { return null; }); });
 
     // Polling corto; el backend usa cache para no saturar Adafruit IO.
-    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 1000);
+    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 1500);
 
     await refreshAlerts();
-    setInterval(refreshAlerts, 1000);
+    setInterval(function () { refreshAlerts().catch(function () { return null; }); }, 1500);
   }
 
   init().catch(function (error) {
