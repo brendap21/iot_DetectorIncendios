@@ -15,7 +15,7 @@ const COOLDOWN_MS = {
   gas_extremo: 20000,
   gas_alto: 40000,
   cambio_extremo_gas: 30000,
-  movimiento_detectado: 60000,
+  movimiento_detectado: 3000,      // Reducido: permite detectar movimiento más frecuentemente
   anomalia_estadistica: 60000,
   probabilidad_incendio_alta: 20000,
   probabilidad_incendio_media: 30000,
@@ -61,10 +61,19 @@ function promedioGas(lecturas) {
   return total / gases.length;
 }
 
+function obtenerLecturaAnterior(ultimas) {
+  // Retorna la lectura más reciente (que es la lectura anterior a la actual)
+  if (Array.isArray(ultimas) && ultimas.length > 0) {
+    return ultimas[0];
+  }
+  return null;
+}
+
 function evaluarAlertas({ lectura, ultimasLecturas }) {
   const alertas = [];
   const gasPromedioReciente = promedioGas(ultimasLecturas);
   const probabilidad = inferirProbabilidadML(lectura);
+  const lecturaAnterior = obtenerLecturaAnterior(ultimasLecturas);
   const sensorDescriptor = ' [Sensor MQ-2]';
 
   if (lectura.riesgo === 'alto' || lectura.alerta === true) {
@@ -102,12 +111,27 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
   }
 
   if (lectura.llama === 1) {
-    alertas.push({
-      tipo: 'llama_detectada',
-      severidad: 'critical',
-      titulo: '🔥 LLAMA DETECTADA - EVACUACIÓN',
-      mensaje: 'Sensor de llama confirmó FUEGO [KY-026]. EVACÚA el área de INMEDIATO.',
-    });
+    // Detectar cambio: si la lectura anterior tenía llama=0 y ahora es 1, generar alerta
+    const huboLlamaAntes = lecturaAnterior && Number(lecturaAnterior.llama) === 1;
+    const esNuevaLlama = !huboLlamaAntes;
+
+    if (esNuevaLlama) {
+      // Cambio detectado: 0→1 (fuego detectado)
+      alertas.push({
+        tipo: 'llama_detectada',
+        severidad: 'critical',
+        titulo: '🔥 LLAMA DETECTADA - EVACUACIÓN',
+        mensaje: 'Sensor de llama confirmó FUEGO [KY-026]. EVACÚA el área de INMEDIATO.',
+      });
+    } else {
+      // Continuidad: ya había llama antes y sigue habiendo → mantener alerta activa
+      alertas.push({
+        tipo: 'llama_detectada',
+        severidad: 'critical',
+        titulo: '🔥 LLAMA DETECTADA - EVACUACIÓN',
+        mensaje: 'Sensor de llama confirmó FUEGO [KY-026]. EVACÚA el área de INMEDIATO.',
+      });
+    }
   }
 
   if (lectura.gas >= GAS_EXTREME_THRESHOLD) {
@@ -136,12 +160,19 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
   }
 
   if (lectura.movimiento === 1) {
-    alertas.push({
-      tipo: 'movimiento_detectado',
-      severidad: 'medium',
-      titulo: 'Movimiento detectado',
-      mensaje: 'El sensor de movimiento detecto presencia en el area monitoreada.',
-    });
+    // Detectar cambio: si la lectura anterior tenía movimiento=0 y ahora es 1, generar alerta
+    const huboMovimientoAntes = lecturaAnterior && Number(lecturaAnterior.movimiento) === 1;
+    const esNuevoMovimiento = !huboMovimientoAntes;
+
+    if (esNuevoMovimiento) {
+      // Cambio detectado: 0→1 (movimiento comenzó)
+      alertas.push({
+        tipo: 'movimiento_detectado',
+        severidad: 'medium',
+        titulo: 'Movimiento detectado',
+        mensaje: 'El sensor de movimiento detecto presencia en el area monitoreada.',
+      });
+    }
   }
 
   if (lectura.anomalia === true) {
