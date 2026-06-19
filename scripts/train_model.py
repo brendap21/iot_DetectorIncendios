@@ -27,7 +27,7 @@ SALIDA - Archivos guardados en models/:
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -46,8 +46,8 @@ SCRIPTS_DIR = Path(__file__).parent
 MODELS_DIR  = SCRIPTS_DIR.parent / "models"
 
 # Archivos de datos de entrenamiento (entrada)
-SYNTHETIC_CSV = SCRIPTS_DIR / "datos_sinteticos.csv"
-REAL_CSV      = SCRIPTS_DIR / "datos_reales.csv"
+SYNTHETIC_CSV = SCRIPTS_DIR / "synthetic_data.csv"
+REAL_CSV      = SCRIPTS_DIR / "real_data.csv"
 
 # Archivos de modelo (salida)
 CLASSIFIER_ONNX    = MODELS_DIR / "clasificador_riesgo.onnx"
@@ -330,7 +330,7 @@ def exportar_baseline(y_validacion: np.ndarray, predicciones: np.ndarray) -> Non
     matriz_confusion = confusion_matrix(y_validacion, predicciones, labels=[0, 1, 2])
     
     datos_baseline = {
-        "exportadoEn": datetime.utcnow().isoformat() + "Z",
+        "exportadoEn": datetime.now(timezone.utc).isoformat(),
         "tamañoDataset": int(len(y_validacion)),
         "exactitud": float(accuracy_score(y_validacion, predicciones)),
         "precision": float(precision_score(y_validacion, predicciones, average="weighted", zero_division=0)),

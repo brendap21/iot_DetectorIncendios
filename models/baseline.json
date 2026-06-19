@@ -1,0 +1,35 @@
+{
+  "exportadoEn": "2026-06-19T07:30:50.783531Z",
+  "tama\u00f1oDataset": 233,
+  "exactitud": 0.9914163090128756,
+  "precision": 0.9915270663159352,
+  "sensibilidad": 0.9914163090128756,
+  "f1": 0.9913565894559151,
+  "matrizConfusion": {
+    "verdaderosNegativos": 231,
+    "falsosPositivos": 2,
+    "matriz": [
+      [
+        153,
+        0,
+        0
+      ],
+      [
+        2,
+        48,
+        0
+      ],
+      [
+        0,
+        0,
+        30
+      ]
+    ]
+  },
+  "distribucionClases": {
+    "normal": 153,
+    "medio": 50,
+    "alto": 30
+  },
+  "proposito": "Este es el baseline de exactitud cuando el modelo se despleg\u00f3. Compara futuras validaciones contra esto para detectar degradaci\u00f3n."
+}
