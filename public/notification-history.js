@@ -44,19 +44,19 @@
 
   function getSeverityLabel(severity) {
     switch (String(severity || '').toLowerCase()) {
-      case 'critical': return '🔴 CRÍTICA';
-      case 'high': return '🟠 ALTA';
-      case 'medium': return '🟡 MEDIA';
-      case 'low': return '🟢 BAJA';
-      default: return '⚪ NORMAL';
+      case 'critical': return 'CRÍTICA';
+      case 'high': return 'ALTA';
+      case 'medium': return 'MEDIA';
+      case 'low': return 'BAJA';
+      default: return 'NORMAL';
     }
   }
 
   function getStatusLabel(notif) {
-    if (!notif.sent && !notif.failed) return '⏳ Pendiente';
-    if (notif.failed === 0 && notif.sent > 0) return '✅ Exitosa';
-    if (notif.sent === 0 && notif.failed > 0) return '❌ Fallida';
-    return '⚠️ Parcial';
+    if (!notif.sent && !notif.failed) return 'Pendiente';
+    if (notif.failed === 0 && notif.sent > 0) return 'Exitosa';
+    if (notif.sent === 0 && notif.failed > 0) return 'Fallida';
+    return 'Parcial';
   }
 
   function notificationRow(notif) {
@@ -81,24 +81,24 @@
       '<p>' + (notif.body || '') + '</p>' +
       '</div>' +
       '<div class="notif-stats">' +
-      '<span>📤 Enviadas: <strong>' + (notif.sent || 0) + '</strong></span>' +
-      '<span>❌ Fallidas: <strong>' + (notif.failed || 0) + '</strong></span>' +
-      '<span>📊 Total: <strong>' + (notif.total || 0) + '</strong></span>';
+      '<span>Enviadas: <strong>' + (notif.sent || 0) + '</strong></span>' +
+      '<span>Fallidas: <strong>' + (notif.failed || 0) + '</strong></span>' +
+      '<span>Total: <strong>' + (notif.total || 0) + '</strong></span>';
 
     if (metadata.sensorGas !== undefined || metadata.sensorLlama !== undefined || metadata.sensorMovimiento !== undefined) {
-      html += '<span class="notif-sensors">🔍 ';
+      html += '<span class="notif-sensors">Sensores: ';
       var sensores = [];
       if (metadata.sensorLlama === 1) sensores.push('Llama');
       if (metadata.sensorGas && metadata.sensorGas > 500) sensores.push('Gas (' + metadata.sensorGas + ')');
       if (metadata.sensorMovimiento === 1) sensores.push('Movimiento');
-      html += sensores.join(' · ');
+      html += sensores.join(', ');
       html += '</span>';
     }
 
     html += '</div>';
 
     if (!notif.leida) {
-      html += '<button class="notif-mark-read" data-notif-id="' + notif.id + '" title="Marcar como leída">✓ Marcar como leída</button>';
+      html += '<button class="notif-mark-read" data-notif-id="' + notif.id + '" title="Marcar como leída">Marcar como leída</button>';
     }
 
     html += '</div>';

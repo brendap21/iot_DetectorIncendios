@@ -1151,10 +1151,10 @@
 
   function interpretarEstado(riesgo) {
     if (!riesgo) return 'Desconocido';
-    if (riesgo.includes('CRÍTICO') || riesgo.includes('CRITICO')) return '🔴 CRÍTICO';
-    if (riesgo.includes('ALTO')) return '🟠 ALTO RIESGO';
-    if (riesgo.includes('MEDIO')) return '🟡 RIESGO MODERADO';
-    return '🟢 BAJO RIESGO';
+    if (riesgo.includes('CRÍTICO') || riesgo.includes('CRITICO')) return 'CRÍTICO';
+    if (riesgo.includes('ALTO')) return 'ALTO RIESGO';
+    if (riesgo.includes('MEDIO')) return 'RIESGO MODERADO';
+    return 'BAJO RIESGO';
   }
 
   function interpretarLectura(lectura) {
