@@ -103,6 +103,7 @@ function buildBaselineSummary() {
     f1: asPercent(f1),
     totalMuestras: baseline['tamañoDataset'] || baseline.datasetSize || 'N/A',
     incendiosDetectados: baseline.distribucionClases?.alto ?? 'N/A',
+    distribucionClases: baseline.distribucionClases || null,
     matrizConfusion: baseline.matrizConfusion || null,
     exportadoEn: baseline.exportadoEn || baseline.exportedAt || null,
   };

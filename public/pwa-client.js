@@ -734,6 +734,57 @@
     return html;
   }
 
+  function renderMetricComparisonChart(baseline, pseudo) {
+    if (!baseline || !pseudo) return '';
+
+    var items = [
+      { label: 'Exactitud', baseline: baseline.accuracy, current: pseudo.accuracy },
+      { label: 'Precision', baseline: baseline.precision, current: pseudo.precision },
+      { label: 'Sensibilidad', baseline: typeof baseline.sensibilidad === 'number' ? baseline.sensibilidad : baseline.recall, current: pseudo.sensibilidad },
+      { label: 'F1-Score', baseline: baseline.f1, current: pseudo.f1 },
+    ];
+
+    var html = '<div class="ml-visual-card ml-visual-card--wide"><div class="ml-visual-title">Comparacion entrenamiento vs tiempo real</div>';
+    html += '<div class="ml-compare-chart">';
+    items.forEach(function (item) {
+      html += '<div class="ml-compare-row">' +
+        '<span class="ml-compare-label">' + item.label + '</span>' +
+        '<div class="ml-compare-bars">' +
+          '<div class="ml-compare-bar"><span>Baseline</span><div class="ml-bar-track"><div class="ml-bar-fill" style="width: ' + percentWidth(item.baseline) + '%;"></div></div><strong>' + formatMetricPercentage(item.baseline) + '</strong></div>' +
+          '<div class="ml-compare-bar"><span>Tiempo real</span><div class="ml-bar-track"><div class="ml-bar-fill ml-bar-fill--ok" style="width: ' + percentWidth(item.current) + '%;"></div></div><strong>' + formatMetricPercentage(item.current) + '</strong></div>' +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function normalizeRiskName(value) {
+    var riesgo = String(value || 'normal').toLowerCase();
+    if (riesgo === 'alto' || riesgo === 'peligro' || riesgo === 'critico' || riesgo === 'critical') return 'alto';
+    if (riesgo === 'medio' || riesgo === 'advertencia' || riesgo === 'warning') return 'medio';
+    return 'normal';
+  }
+
+  function buildClassDistributionFromReadings(lecturas) {
+    var counts = { normal: 0, medio: 0, alto: 0 };
+    if (!Array.isArray(lecturas)) return counts;
+
+    lecturas.forEach(function (lectura) {
+      counts[normalizeRiskName(lectura && lectura.riesgo)] += 1;
+    });
+    return counts;
+  }
+
+  function renderClassDistribution(title, distribucion) {
+    distribucion = distribucion || {};
+    return renderCountBars(title, [
+      { label: 'Normal', value: distribucion.normal || 0, className: 'ml-bar-fill--ok' },
+      { label: 'Medio', value: distribucion.medio || 0, className: 'ml-bar-fill--warning' },
+      { label: 'Alto', value: distribucion.alto || 0, className: 'ml-bar-fill--danger' },
+    ]);
+  }
+
   function normalizeBinaryMatrix(matriz) {
     matriz = matriz || {};
     return {
@@ -886,7 +937,7 @@
     // Renderiza las 2 pestañas activas
     var baselineData = data.baseline || (data.reporteValidacion && data.reporteValidacion.baseline);
     renderBaselineTab(baselineData);
-    renderPseudoTab(data.pseudoEvaluacion);
+    renderPseudoTab(data.pseudoEvaluacion, baselineData, data.lecturas || []);
     
     
     // Setup tabs functionality
@@ -949,6 +1000,7 @@
     html += renderMetricBars(baseline);
     if (baseline.matrizConfusion) {
       html += renderBaselineMatrix(baseline.matrizConfusion);
+      html += renderClassDistribution('Distribucion de clases del entrenamiento', baseline.distribucionClases);
       html += renderCountBars('Distribucion de resultados', [
         { label: 'Muestras', value: baseline.totalMuestras },
         { label: 'Incendios alto', value: baseline.incendiosDetectados, className: 'ml-bar-fill--danger' },
@@ -959,7 +1011,7 @@
     container.innerHTML = html;
   }
 
-  function renderPseudoTab(pseudo) {
+  function renderPseudoTab(pseudo, baseline, lecturas) {
     var container = document.getElementById('mlPseudoContent');
     if (!container || !pseudo) return;
 
@@ -999,6 +1051,7 @@
     html += '</div>';
     
     html += '<div class="ml-visual-grid">';
+    html += renderMetricComparisonChart(baseline, pseudo);
     html += renderMetricBars(pseudo);
     if (pseudo.matrizConfusion) {
       html += renderBinaryConfusionMatrix('Matriz de confusion en tiempo real', pseudo.matrizConfusion);
@@ -1006,6 +1059,7 @@
         { label: 'Total', value: pseudo.totalLecturas },
         { label: 'Incendios', value: pseudo.totalIncendios, className: 'ml-bar-fill--danger' },
       ]);
+      html += renderClassDistribution('Distribucion de niveles en lecturas reales', buildClassDistributionFromReadings(lecturas));
     }
     html += '</div>';
     

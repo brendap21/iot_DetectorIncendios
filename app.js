@@ -992,6 +992,9 @@ function renderResultadosPage(lecturas, meta) {
       padding: 14px;
       min-width: 0;
     }
+    .ml-visual-card--wide {
+      grid-column: 1 / -1;
+    }
     .ml-visual-title {
       font-size: 12px;
       color: #1f2d47;
@@ -1032,8 +1035,44 @@ function renderResultadosPage(lecturas, meta) {
     .ml-bar-fill--ok {
       background: #2ecc71;
     }
+    .ml-bar-fill--warning {
+      background: #e8a800;
+    }
     .ml-bar-fill--danger {
       background: #e74c3c;
+    }
+    .ml-compare-chart {
+      display: grid;
+      gap: 12px;
+    }
+    .ml-compare-row {
+      display: grid;
+      grid-template-columns: minmax(92px, 0.5fr) minmax(180px, 2fr);
+      gap: 10px;
+      align-items: start;
+    }
+    .ml-compare-label {
+      color: #1f2d47;
+      font-size: 12px;
+      font-weight: 800;
+      padding-top: 2px;
+    }
+    .ml-compare-bars {
+      display: grid;
+      gap: 7px;
+    }
+    .ml-compare-bar {
+      display: grid;
+      grid-template-columns: 78px minmax(120px, 1fr) 56px;
+      gap: 8px;
+      align-items: center;
+      color: #556b7f;
+      font-size: 11px;
+    }
+    .ml-compare-bar strong {
+      text-align: right;
+      color: #1a1a2e;
+      font-size: 12px;
     }
     .ml-confusion {
       display: grid;
