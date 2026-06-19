@@ -212,10 +212,21 @@ function renderMlEvaluationModal() {
     <section class="ml-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mlResultsTitle">
       <div class="ml-modal__header">
         <div>
-          <p class="ml-kicker">Evaluacion con lecturas reales</p>
+          <p class="ml-kicker">Evaluacion con lecturas reales - Validacion en 3 Niveles</p>
           <h3 id="mlResultsTitle">Resultados de Machine Learning</h3>
         </div>
         <button type="button" class="ml-modal__close" data-ml-close aria-label="Cerrar resultados ML">Cerrar</button>
+      </div>
+
+      <!-- NIVEL 2: PSEUDO-VALIDACIÓN -->
+      <div style="background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%); border: 1px solid #c8e6c9; border-left: 5px solid #4caf50; padding: 14px; margin: 14px;">
+        <h3 style="color: #2e7d32; font-size: 14px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 800;">
+          ✓ Nivel 2: Pseudo-validación (Comparación con Heurístico)
+        </h3>
+        <p style="font-size: 12px; color: #2e7d32; margin-bottom: 12px; line-height: 1.4;">
+          Se comparan las predicciones del modelo contra un heurístico observado en tiempo real (llama=1 OR gas≥1800).
+          Proporciona feedback rápido sobre el rendimiento actual del modelo.
+        </p>
       </div>
 
       <div id="mlSummaryGrid" class="ml-summary-grid" aria-live="polite"></div>
@@ -250,12 +261,13 @@ function renderMlEvaluationModal() {
         </section>
 
         <section class="ml-block">
-          <h4>Matriz de confusion</h4>
+          <h4>Matriz de confusion (Nivel 2)</h4>
+          <p style="font-size: 12px; color: #556b7f; margin-bottom: 10px;">Muestra el rendimiento del modelo comparado contra el heurístico de observación.</p>
           <div id="mlConfusionGrid" class="confusion-grid" aria-label="Matriz de confusion del modelo"></div>
         </section>
 
         <section class="ml-block">
-          <h4>Lecturas reales usadas</h4>
+          <h4>Lecturas evaluadas (Nivel 2)</h4>
           <p>Las metricas se calculan automaticamente con lecturas del prototipo. Se considera incendio observado cuando hay llama o el gas supera el umbral alto.</p>
           <div id="mlValidationStatus" class="ml-note">Cargando evaluacion...</div>
           <div id="mlValidationList" class="ml-validation-list"></div>
@@ -879,6 +891,84 @@ function renderResultadosPage(lecturas, meta) {
       font-weight: 700;
       font-size: 11px;
       cursor: pointer;
+    }
+
+    /* ---- Validación por Niveles: Colores de Fondo ---- */
+    
+    /* NIVEL 1: Baseline (Entrenamiento) - Azul suave */
+    .validation-level-1 {
+      background: linear-gradient(135deg, #e8f0ff 0%, #f0f7ff 100%);
+      border: 1px solid #c5d9f5;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .validation-level-1 h3, .validation-level-1 h4 {
+      color: #1a4d99;
+      font-weight: 800;
+    }
+    .validation-level-1 article {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid #d4e3f5;
+    }
+
+    /* NIVEL 2: Pseudo-validación (Tiempo Real) - Verde suave */
+    .validation-level-2 {
+      background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+      border: 1px solid #c8e6c9;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .validation-level-2:not(article) {
+      border-left: 5px solid #4caf50;
+    }
+    .validation-level-2 h3, .validation-level-2 h4 {
+      color: #2e7d32;
+      font-weight: 800;
+    }
+    .validation-metric {
+      background: rgba(255, 255, 255, 0.8) !important;
+      border: 1px solid #c8e6c9 !important;
+    }
+    .validation-metric strong {
+      color: #2e7d32;
+    }
+    .confusion-grid.validation-level-2 > div {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(76, 175, 80, 0.05));
+      border: 1px solid #c8e6c9;
+    }
+
+    /* NIVEL 3: Validación Real (Confirmaciones Usuario) - Naranja/Ámbar */
+    .validation-level-3 {
+      background: linear-gradient(135deg, #fff3e0 0%, #fffbf0 100%);
+      border: 1px solid #ffe0b2;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .validation-level-3:not(article) {
+      border-left: 5px solid #ff9800;
+    }
+    .validation-level-3 h3, .validation-level-3 h4 {
+      color: #e65100;
+      font-weight: 800;
+    }
+    .ml-validation-metrics.validation-level-3 {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid #ffe0b2;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .ml-validation-metrics.validation-level-3 .metric {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 152, 0, 0.03));
+      border: 1px solid #ffcc80;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .ml-validation-report.validation-level-3 {
+      border-left: 5px solid #ff9800;
     }
 
     /* ---- mobile ---- */

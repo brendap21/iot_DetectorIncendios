@@ -686,7 +686,7 @@
   }
 
   function renderMetricCard(label, value, description) {
-    return '<article>' +
+    return '<article class="validation-metric validation-level-2">' +
       '<span class="ml-label">' + label + '</span>' +
       '<strong>' + formatPercent(value) + '</strong>' +
       '<small>' + description + '</small>' +
@@ -704,6 +704,11 @@
       renderMetricCard('Precision', metricas.precision, 'Alertas de incendio que fueron incendio real.') +
       renderMetricCard('Sensibilidad', metricas.sensibilidad, 'Incendios reales que el modelo detecto.') +
       renderMetricCard('F1-score', metricas.f1, 'Balance entre precision y sensibilidad.');
+    
+    // Añadir clase de nivel a la sección completa
+    if (mlSummaryGrid) {
+      mlSummaryGrid.className = 'ml-summary-grid validation-level-2';
+    }
   }
 
   function renderConfusionMatrix(evaluacion) {
@@ -722,6 +727,11 @@
       '<div class="axis">Predijo normal</div>' +
       '<div><strong>FN: ' + (matriz.falsosNegativos || 0) + '</strong><span>Incendios que no fueron detectados.</span></div>' +
       '<div class="hit"><strong>VN: ' + (matriz.verdaderosNegativos || 0) + '</strong><span>Estados normales reconocidos.</span></div>';
+    
+    // Añadir clase de nivel a la matriz
+    if (mlConfusionGrid) {
+      mlConfusionGrid.className = 'confusion-grid validation-level-2';
+    }
   }
 
   function renderValidationList(lecturas) {
@@ -763,14 +773,14 @@
     var realValidation = reporteValidacion.realValidation || {};
     var hasConfirmations = realValidation.totalConfirmaciones && realValidation.totalConfirmaciones > 0;
 
-    var html = '<article class="ml-validation-report">' +
-      '<h3>Validación en Tiempo Real</h3>';
+    var html = '<article class="ml-validation-report validation-level-3">' +
+      '<h3>Validación en Tiempo Real (Nivel 3: Confirmaciones del Usuario)</h3>';
 
     if (!hasConfirmations) {
       html += '<div class="ml-note"><strong>Sin datos de validación real aún.</strong> ' +
         'Marca predicciones como correctas/incorrectas en el UI para construir validación real.</div>';
     } else {
-      html += '<div class="ml-validation-metrics">' +
+      html += '<div class="ml-validation-metrics validation-level-3">' +
         '<div class="metric"><strong>Confirmaciones:</strong> ' + realValidation.totalConfirmaciones + '</div>' +
         '<div class="metric"><strong>Correctas:</strong> ' + realValidation.correctas + '</div>' +
         '<div class="metric"><strong>Incorrectas:</strong> ' + realValidation.incorrectas + '</div>' +
