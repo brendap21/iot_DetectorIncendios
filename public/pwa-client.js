@@ -600,9 +600,26 @@
       }
 
       lecturasEventSource = new EventSource('/api/sensores/stream');
-      lecturasEventSource.addEventListener('lectura', function () {
-        refreshDashboard().catch(function () { return null; });
-        refreshAlerts().catch(function () { return null; });
+      lecturasEventSource.addEventListener('lectura', function (event) {
+        try {
+          var lectura = JSON.parse(event.data || '{}');
+          var alertas = lectura && Array.isArray(lectura.alertas) ? lectura.alertas : [];
+
+          refreshDashboard().catch(function () { return null; });
+
+          // Si vienen alertas en el SSE, procesarlas directamente (sin refetch).
+          if (alertas.length > 0) {
+            console.debug('[pwa-client] Procesando alertas desde SSE:', alertas.length);
+            notifyNewAlerts(alertas);
+            renderAlerts(alertas);
+          } else {
+            // Si no vienen alertas en el SSE, hacer refetch normal.
+            refreshAlerts().catch(function () { return null; });
+          }
+        } catch (err) {
+          console.warn('[pwa-client] Error procesando evento SSE:', err.message);
+          refreshAlerts().catch(function () { return null; });
+        }
       });
 
       lecturasEventSource.onerror = function () {

@@ -1,21 +1,23 @@
 'use strict';
 
-const GAS_EXTREME_THRESHOLD = 2000;
-const GAS_SPIKE_DELTA = 350;
+const GAS_EXTREME_THRESHOLD = 800;  // Alerta CRÍTICA
+const GAS_HIGH_THRESHOLD = 500;      // Alerta WARNING
+const GAS_SPIKE_DELTA = 150;
 const ML_PROBABILITY_CRITICAL_THRESHOLD = 0.75;
 const ML_PROBABILITY_WARNING_THRESHOLD = 0.55;
 const ultimaAlertaPorTipo = new Map();
 
 const COOLDOWN_MS = {
-  llama_detectada: 10000,
-  riesgo_alto: 60000,
-  gas_extremo: 45000,
-  cambio_extremo_gas: 45000,
-  movimiento_detectado: 30000,
+  llama_detectada: 5000,
+  riesgo_alto: 30000,
+  gas_extremo: 20000,
+  gas_alto: 40000,
+  cambio_extremo_gas: 30000,
+  movimiento_detectado: 60000,
   anomalia_estadistica: 60000,
-  probabilidad_incendio_alta: 30000,
-  probabilidad_incendio_media: 45000,
-  tendencia_gas_subiendo: 30000,
+  probabilidad_incendio_alta: 20000,
+  probabilidad_incendio_media: 30000,
+  tendencia_gas_subiendo: 20000,
 };
 
 function inferirProbabilidadML(lectura) {
@@ -61,13 +63,14 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
   const alertas = [];
   const gasPromedioReciente = promedioGas(ultimasLecturas);
   const probabilidad = inferirProbabilidadML(lectura);
+  const sensorDescriptor = ' [Sensor MQ-2]';
 
   if (lectura.riesgo === 'alto' || lectura.alerta === true) {
     alertas.push({
       tipo: 'riesgo_alto',
       severidad: 'critical',
-      titulo: 'Amenaza critica detectada por ML',
-      mensaje: 'El analisis del modelo clasifico la lectura como riesgo ALTO. Revisa fuego, gas y presencia en el area.',
+      titulo: 'Amenaza critica detectada',
+      mensaje: `El análisis ML clasificó como riesgo ALTO${sensorDescriptor}. Revisa fuego, gas y presencia en el área.`,
     });
   }
 
@@ -100,8 +103,8 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
     alertas.push({
       tipo: 'llama_detectada',
       severidad: 'critical',
-      titulo: 'Evidencia critica: llama detectada',
-      mensaje: 'El sensor de llama confirma una senal de fuego. Revisa el area de inmediato.',
+      titulo: '🔥 LLAMA DETECTADA - EVACUACIÓN',
+      mensaje: 'Sensor de llama confirmó FUEGO [KY-026]. EVACÚA el área de INMEDIATO.',
     });
   }
 
@@ -109,8 +112,15 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
     alertas.push({
       tipo: 'gas_extremo',
       severidad: 'critical',
-      titulo: 'Alerta critica: gas alto',
-      mensaje: `Nivel de gas elevado (${lectura.gas} ADC). Riesgo de incendio o explosion.`,
+      titulo: 'ALERTA CRÍTICA: Gas muy alto',
+      mensaje: `Concentración de gas CRÍTICA (${lectura.gas} ADC)${sensorDescriptor}. Posible incendio o fuga.`,
+    });
+  } else if (lectura.gas >= GAS_HIGH_THRESHOLD) {
+    alertas.push({
+      tipo: 'gas_alto',
+      severidad: 'high',
+      titulo: 'Alerta: Concentración de gas elevada',
+      mensaje: `Gas detectado (${lectura.gas} ADC)${sensorDescriptor}. Revisa ventilación y fuentes potenciales.`,
     });
   }
 
@@ -118,8 +128,8 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
     alertas.push({
       tipo: 'cambio_extremo_gas',
       severidad: 'high',
-      titulo: 'Cambio extremo de gas',
-      mensaje: `El gas subio ${Math.round(lectura.gas - gasPromedioReciente)} ADC sobre el promedio reciente.`,
+      titulo: 'Cambio rápido en concentración de gas',
+      mensaje: `Gas subió ${Math.round(lectura.gas - gasPromedioReciente)} ADC sobre promedio${sensorDescriptor}.`,
     });
   }
 

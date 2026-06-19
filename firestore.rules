@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ═══════════════════════════════════════════════════════════
+    // OPCIÓN 1: PRODUCTION (Recomendado - Uso general)
+    // ═══════════════════════════════════════════════════════════
+    
+    // Colección: alertas
+    // Descripción: Alertas generadas por lecturas de sensores
+    match /alertas/{alertaId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    
+    // Colección: notification_logs
+    // Descripción: Log de todas las notificaciones enviadas
+    match /notification_logs/{logId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow delete: if false;
+    }
+    
+    // Colección: web_push_subscriptions
+    // Descripción: Suscripciones de navegadores para push notifications
+    match /web_push_subscriptions/{subId} {
+      allow read, write: if request.auth != null || true;
+    }
+    
+    // Por defecto: denegar acceso a todo lo demás
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
