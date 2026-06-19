@@ -715,10 +715,10 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshDashboard().catch(function () { return null; }); });
 
     // Polling corto; el backend usa cache para no saturar Adafruit IO.
-    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 2500);
+    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 1000);
 
     await refreshAlerts();
-    setInterval(refreshAlerts, 2500);
+    setInterval(refreshAlerts, 1000);
   }
 
   init().catch(function (error) {

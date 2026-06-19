@@ -1106,7 +1106,7 @@ function renderResultadosPage(lecturas, meta) {
   <header>
     <div class="header-left">
       <h1>Monitor IoT — Detector de Incendios</h1>
-      <span>Actualiza cada 2.5 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+      <span>Actualiza cada 1 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
     </div>
     <div class="header-right">
       <button id="navbarEnablePushBtn" class="btn btn-primary">Activar notificaciones</button>

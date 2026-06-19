@@ -7,7 +7,7 @@ const { calcularEvaluacionModelo, esIncendioObservado } = require('./ml-evaluati
 
 const AIO_BASE_URL = 'https://io.adafruit.com/api/v2';
 const DEFAULT_FEED = 'detector-incendios.estado';
-const CACHE_TTL_MS = Number(process.env.AIO_CACHE_TTL_MS || 2500);
+const CACHE_TTL_MS = Number(process.env.AIO_CACHE_TTL_MS || 1000);
 
 let cache = {
   before: null,
