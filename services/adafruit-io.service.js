@@ -4,6 +4,7 @@ const logger = require('../logger');
 const { evaluarAlertas } = require('./alert.service');
 const { calcularEstadisticas } = require('./data.service');
 const { calcularEvaluacionModelo, esIncendioObservado } = require('./ml-evaluation.service');
+const alertState = require('./alert-state.service');
 
 const AIO_BASE_URL = 'https://io.adafruit.com/api/v2';
 const DEFAULT_FEED = 'detector-incendios.estado';
@@ -239,7 +240,9 @@ async function obtenerAlertasAdafruit(options = {}) {
     unicasPorTipo.push(alerta);
   });
 
-  const filtradas = unicasPorTipo.filter((alerta) => {
+  const activeAlerts = alertState.syncActiveAlerts(unicasPorTipo);
+
+  const filtradas = activeAlerts.filter((alerta) => {
     const severidadOk = severidades.length === 0 || severidades.includes((alerta.severidad || '').toLowerCase());
     const leidaOk = leidaFiltro === null || alerta.leida === leidaFiltro;
     return severidadOk && leidaOk;
