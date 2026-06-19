@@ -1,0 +1,242 @@
+[
+  {
+    "id": "sample-0-1781854954404",
+    "lecturaId": "sample-lectura-0",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-12T12:23:21.232Z"
+  },
+  {
+    "id": "sample-1-1781854954404",
+    "lecturaId": "sample-lectura-1",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T09:30:57.932Z"
+  },
+  {
+    "id": "sample-2-1781854954404",
+    "lecturaId": "sample-lectura-2",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-19T00:19:56.158Z"
+  },
+  {
+    "id": "sample-3-1781854954404",
+    "lecturaId": "sample-lectura-3",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T05:58:09.403Z"
+  },
+  {
+    "id": "sample-4-1781854954404",
+    "lecturaId": "sample-lectura-4",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T11:14:39.738Z"
+  },
+  {
+    "id": "sample-5-1781854954404",
+    "lecturaId": "sample-lectura-5",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T17:54:46.515Z"
+  },
+  {
+    "id": "sample-6-1781854954404",
+    "lecturaId": "sample-lectura-6",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-16T09:20:49.610Z"
+  },
+  {
+    "id": "sample-7-1781854954404",
+    "lecturaId": "sample-lectura-7",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T04:23:37.275Z"
+  },
+  {
+    "id": "sample-8-1781854954404",
+    "lecturaId": "sample-lectura-8",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-13T08:38:19.980Z"
+  },
+  {
+    "id": "sample-9-1781854954404",
+    "lecturaId": "sample-lectura-9",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T13:32:35.822Z"
+  },
+  {
+    "id": "sample-10-1781854954404",
+    "lecturaId": "sample-lectura-10",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T08:35:02.103Z"
+  },
+  {
+    "id": "sample-11-1781854954404",
+    "lecturaId": "sample-lectura-11",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-18T18:38:35.150Z"
+  },
+  {
+    "id": "sample-12-1781854954404",
+    "lecturaId": "sample-lectura-12",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-12T14:32:28.452Z"
+  },
+  {
+    "id": "sample-13-1781854954405",
+    "lecturaId": "sample-lectura-13",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-18T01:02:47.671Z"
+  },
+  {
+    "id": "sample-14-1781854954405",
+    "lecturaId": "sample-lectura-14",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-13T12:54:05.776Z"
+  },
+  {
+    "id": "sample-15-1781854954405",
+    "lecturaId": "sample-lectura-15",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-16T07:52:28.726Z"
+  },
+  {
+    "id": "sample-16-1781854954405",
+    "lecturaId": "sample-lectura-16",
+    "prediccion": "alto",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T15:32:30.332Z"
+  },
+  {
+    "id": "sample-17-1781854954405",
+    "lecturaId": "sample-lectura-17",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T14:35:21.129Z"
+  },
+  {
+    "id": "sample-18-1781854954405",
+    "lecturaId": "sample-lectura-18",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T05:15:51.973Z"
+  },
+  {
+    "id": "sample-19-1781854954405",
+    "lecturaId": "sample-lectura-19",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-16T03:29:28.429Z"
+  },
+  {
+    "id": "sample-20-1781854954405",
+    "lecturaId": "sample-lectura-20",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-13T21:45:11.915Z"
+  },
+  {
+    "id": "sample-21-1781854954405",
+    "lecturaId": "sample-lectura-21",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-15T08:25:17.785Z"
+  },
+  {
+    "id": "sample-22-1781854954405",
+    "lecturaId": "sample-lectura-22",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-18T12:03:00.913Z"
+  },
+  {
+    "id": "sample-23-1781854954405",
+    "lecturaId": "sample-lectura-23",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-18T04:21:19.206Z"
+  },
+  {
+    "id": "sample-24-1781854954405",
+    "lecturaId": "sample-lectura-24",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-16T07:36:08.990Z"
+  },
+  {
+    "id": "sample-25-1781854954405",
+    "lecturaId": "sample-lectura-25",
+    "prediccion": "medio",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-12T12:31:15.911Z"
+  },
+  {
+    "id": "sample-26-1781854954405",
+    "lecturaId": "sample-lectura-26",
+    "prediccion": "normal",
+    "esCorrecta": true,
+    "razon": "Confirmación inicial automática",
+    "confirmadoEn": "2026-06-14T14:23:23.726Z"
+  },
+  {
+    "id": "sample-27-1781854954405",
+    "lecturaId": "sample-lectura-27",
+    "prediccion": "medio",
+    "esCorrecta": false,
+    "razon": "Falsa alarma detectada",
+    "confirmadoEn": "2026-06-19T02:58:25.231Z"
+  },
+  {
+    "id": "sample-28-1781854954405",
+    "lecturaId": "sample-lectura-28",
+    "prediccion": "normal",
+    "esCorrecta": false,
+    "razon": "Falsa alarma detectada",
+    "confirmadoEn": "2026-06-14T22:25:00.946Z"
+  },
+  {
+    "id": "sample-29-1781854954405",
+    "lecturaId": "sample-lectura-29",
+    "prediccion": "medio",
+    "esCorrecta": false,
+    "razon": "Falsa alarma detectada",
+    "confirmadoEn": "2026-06-16T22:17:49.361Z"
+  }
+]
