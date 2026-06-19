@@ -22,6 +22,8 @@
   var pushIsEnabled = false;
   var LS_ALERT_FILTERS = 'iot.alertFilters.v1';
   var LS_NOTIF_MENU_OPEN = 'iot.notifMenuOpen.v1';
+  var LS_NOTIFIED_ALERTS = 'iot.notifiedAlerts.v1';
+  var LS_NOTIFIED_TYPES = 'iot.notifiedAlertTypes.v1';
 
   function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -186,6 +188,171 @@
     } catch (error) {
       console.warn('No se pudo guardar estado de filtros:', error.message);
     }
+  }
+
+  function playAlertTone(severity) {
+    if (severity === 'critical') {
+      playCriticalTone();
+      setTimeout(playCriticalTone, 420);
+      return;
+    }
+
+    try {
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        return;
+      }
+
+      var ctx = new AudioCtx();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(620, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.24);
+
+      setTimeout(function () {
+        ctx.close().catch(function () { return null; });
+      }, 320);
+    } catch (error) {
+      console.warn('No se pudo reproducir tono de alerta:', error.message);
+    }
+  }
+
+  function loadNotifiedAlertIds() {
+    try {
+      var raw = localStorage.getItem(LS_NOTIFIED_ALERTS);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.slice(0, 80) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function rememberNotifiedAlertId(id) {
+    if (!id) {
+      return;
+    }
+
+    try {
+      var ids = loadNotifiedAlertIds().filter(function (item) { return item !== id; });
+      ids.unshift(id);
+      localStorage.setItem(LS_NOTIFIED_ALERTS, JSON.stringify(ids.slice(0, 80)));
+    } catch (error) {
+      console.warn('No se pudo guardar alerta notificada:', error.message);
+    }
+  }
+
+  function getAlertCooldownMs(alerta) {
+    var tipo = alerta && alerta.tipo ? alerta.tipo : '';
+    if (tipo === 'llama_detectada') return 10000;
+    if (tipo === 'riesgo_alto') return 30000;
+    if (tipo === 'gas_extremo') return 30000;
+    if (tipo === 'cambio_extremo_gas') return 30000;
+    if (tipo === 'probabilidad_incendio_alta') return 30000;
+    if (tipo === 'probabilidad_incendio_media') return 45000;
+    if (tipo === 'tendencia_gas_subiendo') return 30000;
+    if (tipo === 'movimiento_detectado') return 20000;
+    return 15000;
+  }
+
+  function canNotifyAlertType(alerta) {
+    try {
+      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
+      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
+      var state = raw ? JSON.parse(raw) : {};
+      var last = Number(state[key] || 0);
+      return Date.now() - last >= getAlertCooldownMs(alerta);
+    } catch (error) {
+      return true;
+    }
+  }
+
+  function rememberAlertType(alerta) {
+    try {
+      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
+      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
+      var state = raw ? JSON.parse(raw) : {};
+      state[key] = Date.now();
+      localStorage.setItem(LS_NOTIFIED_TYPES, JSON.stringify(state));
+    } catch (error) {
+      console.warn('No se pudo guardar cooldown de alerta:', error.message);
+    }
+  }
+
+  async function showSystemNotification(alerta) {
+    if (!alerta || !('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+
+    var isCritical = alerta.severidad === 'critical';
+    var title = alerta.titulo || (isCritical ? 'Alerta critica IoT' : 'Alerta IoT');
+    var options = {
+      body: alerta.mensaje || 'Se detecto un evento en el detector.',
+      icon: '/icons/icon-192.svg',
+      badge: '/icons/icon-192.svg',
+      tag: alerta.id || alerta.tipo || 'iot-alert',
+      renotify: isCritical,
+      requireInteraction: isCritical,
+      vibrate: isCritical ? [300, 150, 300, 150, 700] : [120],
+      data: {
+        url: '/resultados',
+        severity: alerta.severidad || 'medium',
+        lecturaId: alerta.lecturaId || null,
+      },
+    };
+
+    try {
+      if ('serviceWorker' in navigator) {
+        var registration = await navigator.serviceWorker.getRegistration();
+        if (registration && registration.showNotification) {
+          await registration.showNotification(title, options);
+          return;
+        }
+      }
+
+      var notification = new Notification(title, options);
+      notification.onclick = function () {
+        window.focus();
+        notification.close();
+      };
+    } catch (error) {
+      console.warn('No se pudo mostrar notificacion:', error.message);
+    }
+  }
+
+  function notifyNewAlerts(alertas) {
+    if (!Array.isArray(alertas) || alertas.length === 0) {
+      return;
+    }
+
+    var notified = loadNotifiedAlertIds();
+    var now = Date.now();
+    var nuevas = alertas.filter(function (alerta) {
+      var fechaMs = alerta && alerta.fecha ? Date.parse(alerta.fecha) : now;
+      var reciente = Number.isFinite(fechaMs) ? (now - fechaMs) <= 45000 : true;
+      return alerta &&
+        alerta.id &&
+        alerta.leida !== true &&
+        reciente &&
+        notified.indexOf(alerta.id) === -1 &&
+        canNotifyAlertType(alerta);
+    });
+
+    nuevas.forEach(function (alerta) {
+      playAlertTone(alerta.severidad);
+      showSystemNotification(alerta).catch(function () { return null; });
+      rememberNotifiedAlertId(alerta.id);
+      rememberAlertType(alerta);
+    });
   }
 
   function openMlResultsModal() {
@@ -367,14 +534,7 @@
       var data = await fetchJson(buildAlertsQuery());
       var alertas = data.alertas || [];
 
-      var critical = alertas.find(function (a) {
-        return a.severidad === 'critical' && a.leida !== true;
-      });
-
-      if (critical && critical.id && critical.id !== lastCriticalAlertId) {
-        playCriticalTone();
-        lastCriticalAlertId = critical.id;
-      }
+      notifyNewAlerts(alertas);
 
       renderAlerts(alertas);
 
@@ -392,8 +552,8 @@
   }
 
   async function registerPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Este navegador no soporta notificaciones push.');
+    if (!('Notification' in window)) {
+      alert('Este navegador no soporta notificaciones.');
       return;
     }
 
@@ -403,44 +563,18 @@
       return;
     }
 
-    var swReg = await navigator.serviceWorker.register('/sw.js');
-
-    var keyData = await fetchJson('/api/alertas/public-key');
-    var appServerKey = urlBase64ToUint8Array(keyData.publicKey);
-
-    var existing = await swReg.pushManager.getSubscription();
-    var subscription = existing || await swReg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: appServerKey,
-    });
-
-    await fetchJson('/api/alertas/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subscription }),
-    });
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.register('/sw.js');
+    }
 
     await syncPushUiState();
   }
 
   async function syncPushUiState() {
-    var supported = ('serviceWorker' in navigator) && ('PushManager' in window);
+    var supported = ('Notification' in window);
     var granted = window.Notification && Notification.permission === 'granted';
-    var hasSubscription = false;
 
-    if (supported && granted) {
-      try {
-        var reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
-          var sub = await reg.pushManager.getSubscription();
-          hasSubscription = Boolean(sub);
-        }
-      } catch (error) {
-        console.warn('No se pudo consultar subscripcion push:', error.message);
-      }
-    }
-
-    pushIsEnabled = Boolean(supported && granted && hasSubscription);
+    pushIsEnabled = Boolean(supported && granted);
 
     if (!pushBtn) {
       return pushIsEnabled;
@@ -453,7 +587,7 @@
       return false;
     }
 
-    if (!granted || !hasSubscription) {
+    if (!granted) {
       pushBtn.style.display = 'inline-flex';
       pushBtn.textContent = 'Activar notificaciones';
       pushBtn.disabled = false;
@@ -471,33 +605,27 @@
     pushBtn.textContent = 'Notificaciones activadas';
 
     if (notifStatus) {
-      notifStatus.textContent = 'Push activo en este dispositivo';
+      notifStatus.textContent = 'Notificaciones activas en este dispositivo';
     }
 
     return true;
   }
 
   async function checkPushAvailability() {
-    try {
-      var data = await fetchJson('/api/alertas/public-key');
-
-      if (data && data.publicKey) {
-        await syncPushUiState();
-        return true;
-      }
-    } catch (error) {
+    if (!('Notification' in window)) {
       if (pushBtn) {
         pushBtn.style.display = 'inline-flex';
         pushBtn.textContent = 'Notificaciones no disponibles';
         pushBtn.disabled = true;
       }
       if (notifStatus) {
-        notifStatus.textContent = 'Push deshabilitado en servidor (faltan llaves VAPID).';
+        notifStatus.textContent = 'Este navegador no soporta notificaciones.';
       }
       return false;
     }
 
-    return false;
+    await syncPushUiState();
+    return true;
   }
 
   function setupNavbarNotifications() {

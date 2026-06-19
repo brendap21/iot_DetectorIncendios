@@ -227,7 +227,19 @@ async function obtenerAlertasAdafruit(options = {}) {
     });
   });
 
-  const filtradas = alertas.filter((alerta) => {
+  const unicasPorTipo = [];
+  const tiposVistos = new Set();
+
+  alertas.forEach((alerta) => {
+    if (tiposVistos.has(alerta.tipo)) {
+      return;
+    }
+
+    tiposVistos.add(alerta.tipo);
+    unicasPorTipo.push(alerta);
+  });
+
+  const filtradas = unicasPorTipo.filter((alerta) => {
     const severidadOk = severidades.length === 0 || severidades.includes((alerta.severidad || '').toLowerCase());
     const leidaOk = leidaFiltro === null || alerta.leida === leidaFiltro;
     return severidadOk && leidaOk;

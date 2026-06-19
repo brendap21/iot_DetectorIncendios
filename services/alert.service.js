@@ -2,6 +2,8 @@
 
 const GAS_EXTREME_THRESHOLD = 2000;
 const GAS_SPIKE_DELTA = 350;
+const ML_PROBABILITY_CRITICAL_THRESHOLD = 0.75;
+const ML_PROBABILITY_WARNING_THRESHOLD = 0.55;
 const ultimaAlertaPorTipo = new Map();
 
 const COOLDOWN_MS = {
@@ -11,6 +13,9 @@ const COOLDOWN_MS = {
   cambio_extremo_gas: 45000,
   movimiento_detectado: 30000,
   anomalia_estadistica: 60000,
+  probabilidad_incendio_alta: 30000,
+  probabilidad_incendio_media: 45000,
+  tendencia_gas_subiendo: 30000,
 };
 
 function promedioGas(lecturas) {
@@ -33,22 +38,57 @@ function promedioGas(lecturas) {
 function evaluarAlertas({ lectura, ultimasLecturas }) {
   const alertas = [];
   const gasPromedioReciente = promedioGas(ultimasLecturas);
+  const probabilidad = Number(lectura.probabilidad || 0);
+
+  if (lectura.riesgo === 'alto' || lectura.alerta === true) {
+    alertas.push({
+      tipo: 'riesgo_alto',
+      severidad: 'critical',
+      titulo: 'Amenaza critica detectada por ML',
+      mensaje: 'El analisis del modelo clasifico la lectura como riesgo ALTO. Revisa fuego, gas y presencia en el area.',
+    });
+  }
+
+  if (probabilidad >= ML_PROBABILITY_CRITICAL_THRESHOLD) {
+    alertas.push({
+      tipo: 'probabilidad_incendio_alta',
+      severidad: 'critical',
+      titulo: 'Probabilidad alta de incendio',
+      mensaje: `El modelo estima ${(probabilidad * 100).toFixed(0)}% de probabilidad de incendio o evento critico.`,
+    });
+  } else if (probabilidad >= ML_PROBABILITY_WARNING_THRESHOLD) {
+    alertas.push({
+      tipo: 'probabilidad_incendio_media',
+      severidad: 'high',
+      titulo: 'Probabilidad elevada de incendio',
+      mensaje: `El modelo estima ${(probabilidad * 100).toFixed(0)}% de probabilidad. Mantente atento a gas y llama.`,
+    });
+  }
+
+  if (lectura.prediccion_gas === 'subiendo') {
+    alertas.push({
+      tipo: 'tendencia_gas_subiendo',
+      severidad: 'high',
+      titulo: 'Tendencia de gas en aumento',
+      mensaje: 'El analisis de tendencia indica que la concentracion de gas esta subiendo.',
+    });
+  }
 
   if (lectura.llama === 1) {
     alertas.push({
       tipo: 'llama_detectada',
       severidad: 'critical',
-      titulo: 'Alerta critica: llama detectada',
-      mensaje: 'El sensor de llama reporto una deteccion. Revisa el area de inmediato.',
+      titulo: 'Evidencia critica: llama detectada',
+      mensaje: 'El sensor de llama confirma una senal de fuego. Revisa el area de inmediato.',
     });
   }
 
   if (lectura.gas >= GAS_EXTREME_THRESHOLD) {
     alertas.push({
       tipo: 'gas_extremo',
-      severidad: 'high',
-      titulo: 'Alerta de gas alto',
-      mensaje: `Nivel de gas elevado (${lectura.gas} ADC).`,
+      severidad: 'critical',
+      titulo: 'Alerta critica: gas alto',
+      mensaje: `Nivel de gas elevado (${lectura.gas} ADC). Riesgo de incendio o explosion.`,
     });
   }
 
@@ -74,17 +114,8 @@ function evaluarAlertas({ lectura, ultimasLecturas }) {
     alertas.push({
       tipo: 'anomalia_estadistica',
       severidad: 'medium',
-      titulo: 'Anomalia detectada',
-      mensaje: 'La lectura actual se sale del patron historico esperado.',
-    });
-  }
-
-  if (lectura.riesgo === 'alto') {
-    alertas.push({
-      tipo: 'riesgo_alto',
-      severidad: 'critical',
-      titulo: 'Riesgo alto',
-      mensaje: 'El modelo de riesgo clasifico la lectura en nivel ALTO.',
+      titulo: 'Anomalia detectada por ML',
+      mensaje: 'La lectura actual se sale del patron historico esperado por el modelo.',
     });
   }
 
