@@ -10,8 +10,9 @@ const DEFAULT_FEED = 'detector-incendios.estado';
 const CACHE_TTL_MS = Number(process.env.AIO_CACHE_TTL_MS || 2500);
 
 let cache = {
-  key: '',
+  before: null,
   expiresAt: 0,
+  limit: 0,
   value: null,
 };
 
@@ -118,11 +119,15 @@ async function fetchFeedData({ limit = 20, before = null } = {}) {
 
   const { username, key, feedKey } = getConfig();
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
-  const cacheKey = `${safeLimit}:${before || ''}`;
   const now = Date.now();
 
-  if (cache.key === cacheKey && cache.value && cache.expiresAt > now) {
-    return cache.value;
+  if (
+    cache.before === (before || null) &&
+    cache.value &&
+    cache.limit >= safeLimit &&
+    cache.expiresAt > now
+  ) {
+    return cache.value.slice(0, safeLimit);
   }
 
   const url = new URL(`${AIO_BASE_URL}/${encodeURIComponent(username)}/feeds/${encodeURIComponent(feedKey)}/data`);
@@ -148,8 +153,9 @@ async function fetchFeedData({ limit = 20, before = null } = {}) {
   const data = await response.json();
   const items = Array.isArray(data) ? data : [];
   cache = {
-    key: cacheKey,
+    before: before || null,
     expiresAt: now + CACHE_TTL_MS,
+    limit: safeLimit,
     value: items,
   };
 

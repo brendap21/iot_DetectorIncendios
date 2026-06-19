@@ -567,7 +567,7 @@
   async function refreshDashboard() {
     try {
       console.debug('[pwa-client] refreshDashboard: llamando a /api/sensores/ultimas');
-      var response = await fetch('/api/sensores/ultimas?limit=20', { cache: 'no-store' });
+      var response = await fetch('/api/sensores/ultimas?limit=30', { cache: 'no-store' });
       var data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Error cargando lecturas');
 
@@ -714,11 +714,11 @@
     window.addEventListener('focus', function () { refreshDashboard().catch(function () { return null; }); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshDashboard().catch(function () { return null; }); });
 
-    // Polling constante cada 10 segundos para que el dashboard se actualice sin reload.
-    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 10000);
+    // Polling corto; el backend usa cache para no saturar Adafruit IO.
+    setInterval(function () { refreshDashboard().catch(function () { return null; }); }, 2500);
 
     await refreshAlerts();
-    setInterval(refreshAlerts, 15000);
+    setInterval(refreshAlerts, 2500);
   }
 
   init().catch(function (error) {

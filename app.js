@@ -1106,7 +1106,7 @@ function renderResultadosPage(lecturas, meta) {
   <header>
     <div class="header-left">
       <h1>Monitor IoT — Detector de Incendios</h1>
-      <span>Actualiza cada 10 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+      <span>Actualiza cada 2.5 s · ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
     </div>
     <div class="header-right">
       <button id="navbarEnablePushBtn" class="btn btn-primary">Activar notificaciones</button>
@@ -1154,7 +1154,7 @@ function renderResultadosPage(lecturas, meta) {
       <div class="card">
         <div class="c-label">Lecturas cargadas</div>
         <div class="c-value" id="cardCountValue">${meta.count}</div>
-        <div class="c-unit">ultimas 20</div>
+        <div class="c-unit">ultimas 30</div>
       </div>
     </div>
 
@@ -1300,8 +1300,8 @@ function renderResultadosPage(lecturas, meta) {
 app.get('/resultados', async (req, res, next) => {
   try {
     if (isAdafruitConfigured()) {
-      const resultado = await obtenerLecturasAdafruit({ limit: 20 });
-      const estadisticas = await obtenerEstadisticasAdafruit(20);
+      const resultado = await obtenerLecturasAdafruit({ limit: 30 });
+      const estadisticas = await obtenerEstadisticasAdafruit(30);
 
       return res.status(200).send(renderResultadosPage(resultado.lecturas, {
         count: resultado.lecturas.length,
@@ -1314,7 +1314,7 @@ app.get('/resultados', async (req, res, next) => {
 
     const snapshot = await db.collection('lecturas')
       .orderBy('fecha', 'desc')
-      .limit(20)
+      .limit(30)
       .get();
 
     const lecturas = snapshot.docs.map((doc) => {
@@ -1335,7 +1335,7 @@ app.get('/resultados', async (req, res, next) => {
       };
     });
 
-    const estadisticas = await obtenerEstadisticasLecturas({ limit: 20 });
+    const estadisticas = await obtenerEstadisticasLecturas({ limit: 30 });
 
     res.status(200).send(renderResultadosPage(lecturas, { count: lecturas.length }, estadisticas));
   } catch (err) {
@@ -1345,7 +1345,7 @@ app.get('/resultados', async (req, res, next) => {
     if (quotaExceeded) {
       logger.warn('Firestore quota exceeded on /resultados. Serving runtime cache fallback.');
       const fallback = runtimeStore.listLecturas({
-        limit: 20,
+        limit: 30,
         before: null,
         filters: {
           riesgo: null,
@@ -1355,7 +1355,7 @@ app.get('/resultados', async (req, res, next) => {
         },
       });
 
-      const fallbackStats = await obtenerEstadisticasLecturas({ limit: 20 });
+      const fallbackStats = await obtenerEstadisticasLecturas({ limit: 30 });
       return res.status(200).send(renderResultadosPage(fallback.lecturas, {
         count: fallback.lecturas.length,
       }, fallbackStats));
