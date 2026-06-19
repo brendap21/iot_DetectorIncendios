@@ -9,6 +9,12 @@ const {
   removeSubscription,
 } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
+const {
+  isAdafruitConfigured,
+  obtenerAlertasAdafruit,
+} = require('../services/adafruit-io.service');
+
+const alertasLeidasAdafruit = new Set();
 
 function parseBooleanQuery(value) {
   if (value === undefined) return null;
@@ -68,10 +74,6 @@ const obtenerPublicKey = (req, res) => {
 };
 
 const obtenerAlertasRecientes = async (req, res) => {
-  if (!isFirebaseConfigured || !db) {
-    return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
-  }
-
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
   const severidades = typeof req.query.severidad === 'string' && req.query.severidad.trim()
     ? req.query.severidad.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -79,6 +81,28 @@ const obtenerAlertasRecientes = async (req, res) => {
   const leidaFiltro = parseBooleanQuery(req.query.leida);
 
   try {
+    if (isAdafruitConfigured()) {
+      const resultado = await obtenerAlertasAdafruit({
+        limit,
+        severidades,
+        leida: null,
+      });
+      const alertas = (resultado.alertas || []).map((alerta) => ({
+        ...alerta,
+        leida: alertasLeidasAdafruit.has(alerta.id),
+      })).filter((alerta) => leidaFiltro === null || alerta.leida === leidaFiltro);
+
+      return res.status(200).json({
+        ...resultado,
+        count: alertas.length,
+        alertas,
+      });
+    }
+
+    if (!isFirebaseConfigured || !db) {
+      return res.status(503).json({ ok: false, error: 'No hay proveedor de datos configurado. Define AIO_USERNAME y AIO_KEY.' });
+    }
+
     const snapshot = await db.collection('alertas')
       .orderBy('fecha', 'desc')
       .limit(limit)
@@ -133,6 +157,20 @@ const obtenerAlertasRecientes = async (req, res) => {
 };
 
 const marcarAlertaLeida = async (req, res) => {
+  if (isAdafruitConfigured()) {
+    if (req.params && req.params.id) {
+      alertasLeidasAdafruit.add(req.params.id);
+    }
+
+    return res.status(200).json({
+      ok: true,
+      id: req.params && req.params.id,
+      leida: true,
+      volatile: true,
+      message: 'Alerta derivada de Adafruit IO marcada como leida solo en el cliente.',
+    });
+  }
+
   if (!isFirebaseConfigured || !db) {
     return res.status(503).json({ ok: false, error: 'Firebase no esta configurado' });
   }

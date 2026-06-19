@@ -16,6 +16,12 @@ const { sendAlertToAll } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
 const { obtenerEstadisticasLecturas } = require('../services/data.service');
 const { calcularEvaluacionModelo, esIncendioObservado } = require('../services/ml-evaluation.service');
+const {
+  isAdafruitConfigured,
+  obtenerLecturasAdafruit,
+  obtenerEstadisticasAdafruit,
+  obtenerEvaluacionAdafruit,
+} = require('../services/adafruit-io.service');
 
 // Number of recent readings fetched from Firestore to compute gas trend.
 const TREND_WINDOW = 10;
@@ -245,9 +251,9 @@ const guardarLectura = async (req, res) => {
 };
 
 const obtenerLecturasRecientes = async (req, res) => {
-  if (!isFirebaseConfigured || !db) {
-    logger.warn('Recent readings requested but Firebase is not configured', { path: req.path });
-    return res.status(503).json({ ok: false, error: 'Firebase no está configurado en este entorno' });
+  if (!isAdafruitConfigured() && (!isFirebaseConfigured || !db)) {
+    logger.warn('Recent readings requested but no data provider is configured', { path: req.path });
+    return res.status(503).json({ ok: false, error: 'No hay proveedor de datos configurado. Define AIO_USERNAME y AIO_KEY.' });
   }
 
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
@@ -265,6 +271,15 @@ const obtenerLecturasRecientes = async (req, res) => {
   try {
     if (beforeRaw && Number.isNaN(beforeDate.getTime())) {
       return res.status(400).json({ ok: false, error: 'Parametro before invalido. Usa fecha ISO 8601.' });
+    }
+
+    if (isAdafruitConfigured()) {
+      const resultado = await obtenerLecturasAdafruit({
+        limit,
+        before: beforeRaw || null,
+        filters,
+      });
+      return res.status(200).json(resultado);
     }
 
     const READ_BATCH_SIZE = 120;
@@ -383,14 +398,16 @@ const obtenerLecturasRecientes = async (req, res) => {
 };
 
 const obtenerEstadisticas = async (req, res) => {
-  if (!isFirebaseConfigured || !db) {
+  if (!isAdafruitConfigured() && (!isFirebaseConfigured || !db)) {
     logger.warn('Statistics requested but Firebase is not configured', { path: req.path });
-    return res.status(503).json({ ok: false, error: 'Firebase no está configurado en este entorno' });
+    return res.status(503).json({ ok: false, error: 'No hay proveedor de datos configurado. Define AIO_USERNAME y AIO_KEY.' });
   }
 
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 500);
-    const estadisticas = await obtenerEstadisticasLecturas({ limit });
+    const estadisticas = isAdafruitConfigured()
+      ? await obtenerEstadisticasAdafruit(Math.min(limit, 100))
+      : await obtenerEstadisticasLecturas({ limit });
 
     return res.status(200).json({ ok: true, estadisticas });
   } catch (error) {
@@ -429,6 +446,10 @@ const obtenerEvaluacionModelo = async (req, res) => {
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 300, 20), 500);
 
   try {
+    if (isAdafruitConfigured()) {
+      return res.status(200).json(await obtenerEvaluacionAdafruit(limit));
+    }
+
     if (!isFirebaseConfigured || !db) {
       throw new Error('Firebase no esta configurado');
     }

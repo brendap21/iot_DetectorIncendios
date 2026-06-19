@@ -10,6 +10,12 @@ const logger = require('./logger');
 const { db, isFirebaseConfigured, firebaseInitError } = require('./firebase');
 const runtimeStore = require('./services/runtime-store.service');
 const { obtenerEstadisticasLecturas } = require('./services/data.service');
+const {
+  isAdafruitConfigured,
+  getConfig: getAdafruitConfig,
+  obtenerLecturasAdafruit,
+  obtenerEstadisticasAdafruit,
+} = require('./services/adafruit-io.service');
 
 const app = express();
 
@@ -70,6 +76,8 @@ app.get('/', (req, res) => {
     uptime: process.uptime(),
     firebaseConfigured: Boolean(isFirebaseConfigured),
     firebaseError: firebaseInitError ? (firebaseInitError.message || String(firebaseInitError)) : null,
+    adafruitConfigured: isAdafruitConfigured(),
+    adafruitFeed: isAdafruitConfigured() ? getAdafruitConfig().feedKey : null,
     resultadosUrl: '/resultados'
   });
 });
@@ -1291,8 +1299,17 @@ function renderResultadosPage(lecturas, meta) {
 
 app.get('/resultados', async (req, res, next) => {
   try {
+    if (isAdafruitConfigured()) {
+      const resultado = await obtenerLecturasAdafruit({ limit: 20 });
+      const estadisticas = await obtenerEstadisticasAdafruit(20);
+
+      return res.status(200).send(renderResultadosPage(resultado.lecturas, {
+        count: resultado.lecturas.length,
+      }, estadisticas));
+    }
+
     if (!isFirebaseConfigured || !db) {
-      return res.status(503).send('<pre>Firebase no está configurado en este entorno</pre>');
+      return res.status(503).send('<pre>No hay proveedor de datos configurado. Define AIO_USERNAME, AIO_KEY y AIO_STATE_FEED en Render.</pre>');
     }
 
     const snapshot = await db.collection('lecturas')

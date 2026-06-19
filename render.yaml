@@ -11,12 +11,12 @@ services:
         value: 18
       - key: DEVICE_API_KEY
         sync: false
-      - key: FIREBASE_PROJECT_ID
+      - key: AIO_USERNAME
         sync: false
-      - key: FIREBASE_CLIENT_EMAIL
+      - key: AIO_KEY
         sync: false
-      - key: FIREBASE_PRIVATE_KEY
-        sync: false
+      - key: AIO_STATE_FEED
+        value: detector-incendios.estado
       - key: VAPID_SUBJECT
         sync: false
       - key: VAPID_PUBLIC_KEY
