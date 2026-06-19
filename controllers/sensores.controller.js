@@ -11,7 +11,7 @@
 const { db, isFirebaseConfigured } = require('../firebase');
 const logger = require('../logger');
 const { clasificarRiesgo, detectarAnomalia, predecirTendencia } = require('../services/ml.service');
-const { evaluarAlertas, filtrarAlertasPorCooldown } = require('../services/alert.service');
+const { evaluarAlertas, filtrarAlertasPorEstadoDinamico } = require('../services/alert.service');
 const { sendAlertToAll } = require('../services/push.service');
 const runtimeStore = require('../services/runtime-store.service');
 const { obtenerEstadisticasLecturas } = require('../services/data.service');
@@ -152,7 +152,7 @@ const guardarLectura = async (req, res) => {
     logger.info('Lectura guardada', { id: doc.id, riesgo, anomalia, prediccion_gas });
 
     const alertasGeneradas = evaluarAlertas({ lectura: lecturaGuardada, ultimasLecturas });
-    const alertasAEnviar = filtrarAlertasPorCooldown(alertasGeneradas);
+    const alertasAEnviar = await filtrarAlertasPorEstadoDinamico(alertasGeneradas);
 
     if (alertasAEnviar.length > 0) {
       for (const alerta of alertasAEnviar) {

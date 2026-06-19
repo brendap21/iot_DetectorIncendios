@@ -293,6 +293,49 @@ const marcarNotificacionLeida = async (req, res) => {
   }
 };
 
+const resolverAmenaza = async (req, res) => {
+  try {
+    const tipoAmenaza = req.params.tipo;
+    
+    if (!tipoAmenaza || typeof tipoAmenaza !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Tipo de amenaza requerido' });
+    }
+
+    // Importar aquí para evitar circular dependencies
+    const { resolverAmenaza: resolverAmenazaService } = require('../services/alert.service');
+    
+    await resolverAmenazaService(tipoAmenaza);
+    
+    logger.info(`Amenaza resuelta: ${tipoAmenaza}`);
+    return res.status(200).json({ ok: true, message: `Amenaza ${tipoAmenaza} marcada como resuelta` });
+  } catch (error) {
+    logger.error('Error resolviendo amenaza', error && error.stack ? error.stack : error);
+    return res.status(500).json({ ok: false, error: 'Error resolviendo amenaza' });
+  }
+};
+
+const obtenerEstadoAmenazas = async (req, res) => {
+  try {
+    if (!isFirebaseConfigured || !db) {
+      return res.status(503).json({ ok: false, error: 'Firebase no configurado' });
+    }
+
+    // Importar aquí para evitar circular dependencies
+    const { obtenerEstadoAmenazas: obtenerEstadosService } = require('../services/alert.service');
+    
+    const estados = await obtenerEstadosService();
+    
+    return res.status(200).json({ 
+      ok: true, 
+      count: estados.length,
+      amenazas: estados
+    });
+  } catch (error) {
+    logger.error('Error obteniendo estado de amenazas', error && error.stack ? error.stack : error);
+    return res.status(500).json({ ok: false, error: 'Error obteniendo estado de amenazas' });
+  }
+};
+
 module.exports = {
   suscribirNotificaciones,
   desuscribirNotificaciones,
@@ -302,4 +345,6 @@ module.exports = {
   obtenerHistorialNotificaciones,
   obtenerResumenNotificaciones,
   marcarNotificacionLeida,
+  resolverAmenaza,
+  obtenerEstadoAmenazas,
 };

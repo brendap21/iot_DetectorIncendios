@@ -1,11 +1,13 @@
 'use strict';
 
+const { db } = require('../firebase');
+const logger = require('../logger');
+
 const GAS_EXTREME_THRESHOLD = 800;  // Alerta CRÍTICA
 const GAS_HIGH_THRESHOLD = 500;      // Alerta WARNING
 const GAS_SPIKE_DELTA = 150;
 const ML_PROBABILITY_CRITICAL_THRESHOLD = 0.75;
 const ML_PROBABILITY_WARNING_THRESHOLD = 0.55;
-const ultimaAlertaPorTipo = new Map();
 
 const COOLDOWN_MS = {
   llama_detectada: 5000,
@@ -171,4 +173,141 @@ function filtrarAlertasPorCooldown(alertas) {
   });
 }
 
-module.exports = { evaluarAlertas, filtrarAlertasPorCooldown };
+// Obtener estado persistente de amenaza desde Firestore
+async function obtenerEstadoAmenaza(tipoAmenaza) {
+  if (!db) return null;
+  
+  try {
+    const docRef = db.collection('threat_states').doc(tipoAmenaza);
+    const snapshot = await docRef.get();
+    return snapshot.exists ? snapshot.data() : null;
+  } catch (error) {
+    logger.warn(`Error obteniendo estado de amenaza ${tipoAmenaza}:`, error.message);
+    return null;
+  }
+}
+
+// Actualizar estado de amenaza en Firestore
+async function actualizarEstadoAmenaza(tipoAmenaza, estado) {
+  if (!db) return;
+  
+  try {
+    const docRef = db.collection('threat_states').doc(tipoAmenaza);
+    await docRef.set(estado, { merge: true });
+  } catch (error) {
+    logger.warn(`Error actualizando estado de amenaza ${tipoAmenaza}:`, error.message);
+  }
+}
+
+// Detectar cambios de estado y filtrar alertas dinámicamente
+async function filtrarAlertasPorEstadoDinamico(alertas) {
+  if (!db || !Array.isArray(alertas) || alertas.length === 0) {
+    return alertas;
+  }
+
+  const alertasAEnviar = [];
+  const ahora = Date.now();
+
+  for (const alerta of alertas) {
+    const tipo = alerta.tipo;
+    const cooldown = COOLDOWN_MS[tipo] || 30000;
+
+    try {
+      // Obtener estado actual
+      let estadoAmenaza = await obtenerEstadoAmenaza(tipo);
+      
+      if (!estadoAmenaza) {
+        // Primera vez que se detecta esta amenaza
+        estadoAmenaza = {
+          tipo,
+          estado: 'active',  // active, resolved, dismissed
+          ultimaDeteccion: new Date(),
+          ultimaNotificacion: null,
+          contador: 0,
+          createdAt: new Date(),
+        };
+      }
+
+      const ultimaNotif = estadoAmenaza.ultimaNotificacion 
+        ? new Date(estadoAmenaza.ultimaNotificacion).getTime()
+        : 0;
+
+      // Lógica de decisión
+      let debeEnviarNotificacion = false;
+      let nuevoEstado = estadoAmenaza.estado;
+
+      if (estadoAmenaza.estado === 'resolved' || estadoAmenaza.estado === 'dismissed') {
+        // La amenaza fue resuelta/descartada y vuelve a ocurrir → NUEVA notificación
+        debeEnviarNotificacion = true;
+        nuevoEstado = 'active';
+        logger.info(`Amenaza reactivada: ${tipo}`);
+      } else if (estadoAmenaza.estado === 'active') {
+        // Ya está activa: solo enviar si pasó el cooldown
+        if ((ahora - ultimaNotif) >= cooldown) {
+          debeEnviarNotificacion = true;
+          logger.info(`Amenaza renotificada (cooldown pasado): ${tipo}`);
+        }
+      }
+
+      // Actualizar estado
+      if (debeEnviarNotificacion) {
+        estadoAmenaza.ultimaNotificacion = new Date();
+        estadoAmenaza.contador = (estadoAmenaza.contador || 0) + 1;
+        estadoAmenaza.ultimaDeteccion = new Date();
+        
+        await actualizarEstadoAmenaza(tipo, estadoAmenaza);
+        alertasAEnviar.push(alerta);
+      } else {
+        // Actualizar solo la detección
+        estadoAmenaza.ultimaDeteccion = new Date();
+        await actualizarEstadoAmenaza(tipo, estadoAmenaza);
+      }
+    } catch (error) {
+      logger.error(`Error procesando alerta ${tipo}:`, error.message);
+      // En caso de error, enviar la alerta (modo seguro)
+      alertasAEnviar.push(alerta);
+    }
+  }
+
+  return alertasAEnviar;
+}
+
+// Resolver una amenaza (marcar como atendida)
+async function resolverAmenaza(tipoAmenaza) {
+  if (!db) return;
+  
+  try {
+    const estadoAmenaza = await obtenerEstadoAmenaza(tipoAmenaza);
+    if (estadoAmenaza) {
+      estadoAmenaza.estado = 'resolved';
+      estadoAmenaza.resueltaEn = new Date();
+      await actualizarEstadoAmenaza(tipoAmenaza, estadoAmenaza);
+      logger.info(`Amenaza resuelta: ${tipoAmenaza}`);
+    }
+  } catch (error) {
+    logger.error(`Error resolviendo amenaza ${tipoAmenaza}:`, error.message);
+  }
+}
+
+// Obtener estado actual de todas las amenazas
+async function obtenerEstadoAmenazas() {
+  if (!db) return [];
+  
+  try {
+    const snapshot = await db.collection('threat_states').get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (error) {
+    logger.error('Error obteniendo estados de amenazas:', error.message);
+    return [];
+  }
+}
+
+module.exports = { 
+  evaluarAlertas, 
+  filtrarAlertasPorCooldown,  // Mantener para compatibilidad
+  filtrarAlertasPorEstadoDinamico,  // Nuevo sistema
+  obtenerEstadoAmenaza,
+  actualizarEstadoAmenaza,
+  resolverAmenaza,
+  obtenerEstadoAmenazas,
+};

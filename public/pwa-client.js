@@ -965,58 +965,6 @@
     }
   }
 
-  function setupResponsiveSections() {
-    var sections = document.querySelectorAll('main .section');
-    if (!sections || sections.length === 0) {
-      return;
-    }
-
-    sections.forEach(function (section) {
-      if (!section || section.dataset.collapsibleReady === '1') {
-        return;
-      }
-
-      var title = section.querySelector('h2');
-      var hint = section.querySelector('.section-hint');
-      var anchor = hint || title;
-      if (!anchor) {
-        return;
-      }
-
-      var toggle = document.createElement('button');
-      toggle.type = 'button';
-
-      anchor.insertAdjacentElement('afterend', toggle);
-
-      var content = document.createElement('div');
-      content.className = 'section-content';
-      toggle.insertAdjacentElement('afterend', content);
-
-      while (content.nextSibling) {
-        content.appendChild(content.nextSibling);
-      }
-
-      function updateToggleText() {
-        var collapsed = section.classList.contains('collapsed');
-        toggle.textContent = collapsed ? 'Mostrar seccion' : 'Ocultar seccion';
-      }
-
-      toggle.addEventListener('click', function () {
-        section.classList.toggle('collapsed');
-        updateToggleText();
-      });
-
-      var isMobile = window.matchMedia('(max-width: 740px)').matches;
-      var keepOpen = section.id === 'sec-resumen' || section.id === 'sec-control';
-      if (isMobile && !keepOpen) {
-        section.classList.add('collapsed');
-      }
-
-      updateToggleText();
-      section.dataset.collapsibleReady = '1';
-    });
-  }
-
   function setupSectionNavHighlight() {
     var links = Array.prototype.slice.call(document.querySelectorAll('.section-nav .section-link'));
     var sections = Array.prototype.slice.call(document.querySelectorAll('main .section[id]'));
@@ -1192,7 +1140,6 @@
 
   async function init() {
     setupAudioUnlockGestures();
-    setupResponsiveSections();
     setupSectionNavHighlight();
     setupInstallPrompt();
     setupNavbarNotifications();
