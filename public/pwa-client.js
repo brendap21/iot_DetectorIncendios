@@ -985,7 +985,6 @@
 
       var toggle = document.createElement('button');
       toggle.type = 'button';
-      toggle.className = 'section-toggle-btn';
 
       anchor.insertAdjacentElement('afterend', toggle);
 
