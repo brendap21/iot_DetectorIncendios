@@ -24,6 +24,8 @@
   var LS_NOTIF_MENU_OPEN = 'iot.notifMenuOpen.v1';
   var LS_NOTIFIED_ALERTS = 'iot.notifiedAlerts.v1';
   var LS_NOTIFIED_TYPES = 'iot.notifiedAlertTypes.v1';
+  var audioUnlocked = false;
+  var audioCtx = null;
 
   function urlBase64ToUint8Array(base64String) {
     var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -51,12 +53,8 @@
 
   function playCriticalTone() {
     try {
-      var AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) {
-        return;
-      }
-
-      var ctx = new AudioCtx();
+      var ctx = getAudioContext();
+      if (!ctx) return;
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
 
@@ -71,12 +69,43 @@
 
       osc.start();
       osc.stop(ctx.currentTime + 0.36);
-
-      setTimeout(function () {
-        ctx.close().catch(function () { return null; });
-      }, 450);
     } catch (error) {
       console.warn('No se pudo reproducir tono de alerta:', error.message);
+    }
+  }
+
+  function getAudioContext() {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+      return null;
+    }
+
+    if (!audioCtx) {
+      audioCtx = new AudioCtx();
+    }
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(function () { return null; });
+    }
+
+    return audioCtx;
+  }
+
+  function unlockAudio() {
+    try {
+      var ctx = getAudioContext();
+      if (!ctx) return;
+
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.03);
+      audioUnlocked = true;
+    } catch (error) {
+      console.warn('No se pudo desbloquear audio:', error.message);
     }
   }
 
@@ -89,6 +118,16 @@
 
     if (onlyUnreadAlerts && onlyUnreadAlerts.checked) {
       query.push('leida=false');
+    }
+
+    return '/api/alertas/ultimas?' + query.join('&');
+  }
+
+  function buildAllAlertsQuery() {
+    var query = ['limit=20'];
+
+    if (severityFilter && severityFilter.value && severityFilter.value !== 'all') {
+      query.push('severidad=' + encodeURIComponent(severityFilter.value));
     }
 
     return '/api/alertas/ultimas?' + query.join('&');
@@ -198,12 +237,8 @@
     }
 
     try {
-      var AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) {
-        return;
-      }
-
-      var ctx = new AudioCtx();
+      var ctx = getAudioContext();
+      if (!ctx) return;
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
 
@@ -218,10 +253,6 @@
 
       osc.start();
       osc.stop(ctx.currentTime + 0.24);
-
-      setTimeout(function () {
-        ctx.close().catch(function () { return null; });
-      }, 320);
     } catch (error) {
       console.warn('No se pudo reproducir tono de alerta:', error.message);
     }
@@ -534,6 +565,11 @@
       var data = await fetchJson(buildAlertsQuery());
       var alertas = data.alertas || [];
 
+      if (alertas.length === 0 && onlyUnreadAlerts && onlyUnreadAlerts.checked) {
+        var allData = await fetchJson(buildAllAlertsQuery());
+        alertas = allData.alertas || [];
+      }
+
       notifyNewAlerts(alertas);
 
       renderAlerts(alertas);
@@ -557,6 +593,8 @@
       return;
     }
 
+    unlockAudio();
+
     var permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       alert('Permiso de notificaciones no concedido.');
@@ -568,6 +606,15 @@
     }
 
     await syncPushUiState();
+    playAlertTone('medium');
+    await showSystemNotification({
+      id: 'notificaciones-activadas',
+      tipo: 'sistema',
+      severidad: 'medium',
+      titulo: 'Notificaciones activadas',
+      mensaje: 'El detector IoT avisara cuando el analisis detecte una amenaza.',
+      fecha: new Date().toISOString(),
+    });
   }
 
   async function syncPushUiState() {
@@ -807,6 +854,7 @@
 
     if (pushBtn) {
       pushBtn.addEventListener('click', function () {
+        unlockAudio();
         registerPush().catch(function (error) {
           alert('No fue posible activar notificaciones: ' + error.message);
         });
