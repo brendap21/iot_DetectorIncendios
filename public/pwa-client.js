@@ -52,6 +52,10 @@
   }
 
   function playCriticalTone() {
+    if (!audioUnlocked) {
+      return;
+    }
+
     try {
       var ctx = getAudioContext();
       if (!ctx) return;
@@ -80,6 +84,10 @@
       return null;
     }
 
+    if (!audioUnlocked) {
+      return null;
+    }
+
     if (!audioCtx) {
       audioCtx = new AudioCtx();
     }
@@ -93,8 +101,21 @@
 
   function unlockAudio() {
     try {
-      var ctx = getAudioContext();
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      if (!audioCtx) {
+        audioCtx = new AudioCtx();
+      }
+
+      audioUnlocked = true;
+
+      var ctx = audioCtx;
       if (!ctx) return;
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(function () { return null; });
+      }
 
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -107,6 +128,16 @@
     } catch (error) {
       console.warn('No se pudo desbloquear audio:', error.message);
     }
+  }
+
+  function setupAudioUnlockGestures() {
+    var unlockOnce = function () {
+      unlockAudio();
+    };
+
+    document.addEventListener('pointerdown', unlockOnce, { passive: true });
+    document.addEventListener('touchstart', unlockOnce, { passive: true });
+    document.addEventListener('keydown', unlockOnce);
   }
 
   function buildAlertsQuery() {
@@ -230,6 +261,10 @@
   }
 
   function playAlertTone(severity) {
+    if (!audioUnlocked) {
+      return;
+    }
+
     if (severity === 'critical') {
       playCriticalTone();
       setTimeout(playCriticalTone, 420);
@@ -574,6 +609,15 @@
 
       renderAlerts(alertas);
 
+      var unread = alertas.filter(function (alerta) {
+        return alerta && alerta.leida !== true;
+      });
+
+      if (unread.length > 0 && navbarNotifMenu) {
+        navbarNotifMenu.classList.add('open');
+        persistNotifMenuState(true);
+      }
+
       if (notifStatus) {
         notifStatus.textContent = alertas.length > 0
           ? 'Tienes ' + alertas.length + ' alertas recientes'
@@ -835,6 +879,7 @@
   }
 
   async function init() {
+    setupAudioUnlockGestures();
     setupInstallPrompt();
     setupNavbarNotifications();
     setupMlResultsModal();
