@@ -63,13 +63,14 @@
     var leidaClass = notif.leida ? 'notif-read' : 'notif-unread';
     var severityLabel = getSeverityLabel(notif.severity);
     var statusLabel = getStatusLabel(notif);
+    var severityClass = 'notif-severity-' + (String(notif.severity || '').toLowerCase());
     var metadata = notif.metadata || {};
 
     var html = '<div class="notif-item ' + leidaClass + '">' +
       '<div class="notif-header">' +
       '<div class="notif-title-wrap">' +
       '<h4 class="notif-title">' + (notif.title || 'Alerta') + '</h4>' +
-      '<span class="notif-severity" style="background-color: ' + getSeverityColor(notif.severity) + '; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">' + severityLabel + '</span>' +
+      '<span class="notif-severity ' + severityClass + '">' + severityLabel + '</span>' +
       '</div>' +
       '<div class="notif-meta">' +
       '<span class="notif-time">' + formatDate(notif.timestamp || notif.createdAt) + '</span>' +
@@ -85,17 +86,19 @@
       '<span>📊 Total: <strong>' + (notif.total || 0) + '</strong></span>';
 
     if (metadata.sensorGas !== undefined || metadata.sensorLlama !== undefined || metadata.sensorMovimiento !== undefined) {
-      html += '<span class="notif-sensors">🔍 Sensores: ';
-      if (metadata.sensorLlama === 1) html += 'Llama ';
-      if (metadata.sensorGas && metadata.sensorGas > 500) html += 'Gas ';
-      if (metadata.sensorMovimiento === 1) html += 'Movimiento ';
+      html += '<span class="notif-sensors">🔍 ';
+      var sensores = [];
+      if (metadata.sensorLlama === 1) sensores.push('Llama');
+      if (metadata.sensorGas && metadata.sensorGas > 500) sensores.push('Gas (' + metadata.sensorGas + ')');
+      if (metadata.sensorMovimiento === 1) sensores.push('Movimiento');
+      html += sensores.join(' · ');
       html += '</span>';
     }
 
     html += '</div>';
 
     if (!notif.leida) {
-      html += '<button class="notif-mark-read" data-notif-id="' + notif.id + '" title="Marcar como leída">Marcar como leída</button>';
+      html += '<button class="notif-mark-read" data-notif-id="' + notif.id + '" title="Marcar como leída">✓ Marcar como leída</button>';
     }
 
     html += '</div>';
@@ -193,11 +196,12 @@
     try {
       var data = await fetchJson('/api/alertas/notificaciones/resumen?hours=24');
       if (data.stats && notifResumenStats) {
+        notifResumenStats.style.display = 'grid';
         notifResumenStats.innerHTML = '<div class="notif-stats-grid">' +
           '<div class="stat-card"><div class="stat-value">' + (data.stats.total || 0) + '</div><div class="stat-label">Total</div></div>' +
           '<div class="stat-card"><div class="stat-value">' + (data.stats.leidas || 0) + '</div><div class="stat-label">Leídas</div></div>' +
           '<div class="stat-card"><div class="stat-value">' + (data.stats.noleidas || 0) + '</div><div class="stat-label">No leídas</div></div>' +
-          '<div class="stat-card"><div class="stat-value">' + (data.stats.tasaExito || 0) + '%</div><div class="stat-label">Tasa Éxito</div></div>' +
+          '<div class="stat-card"><div class="stat-value">' + (data.stats.tasaExito || 0) + '%</div><div class="stat-label">Éxito</div></div>' +
           '</div>';
       }
     } catch (error) {

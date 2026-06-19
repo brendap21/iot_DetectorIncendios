@@ -2011,32 +2011,31 @@ function renderResultadosPage(lecturas, meta) {
 
     <section id="sec-notificaciones" class="section">
     <h2>Historial de notificaciones</h2>
-    <p class="section-hint">Aqui ves todas las notificaciones enviadas a tu dispositivo. Cada notificacion muestra el estado de entrega, los sensores que la generaron y la opcion de marcarla como leida.</p>
+    <p class="section-hint">Aqui ves todas las notificaciones enviadas a tu dispositivo. Puedes filtrar, marcar como leidas y ver estadisticas de entrega.</p>
     
     <div id="notificationHistoryContainer">
       <div class="notif-controls">
         <select id="notifSeverityFilter" class="filter" aria-label="Filtrar por severidad">
           <option value="all">Severidad: todas</option>
-          <option value="critical">🔴 Críticas</option>
-          <option value="high">🟠 Altas</option>
-          <option value="medium">🟡 Medias</option>
-          <option value="low">🟢 Bajas</option>
+          <option value="critical">Critica</option>
+          <option value="high">Alta</option>
+          <option value="medium">Media</option>
+          <option value="low">Baja</option>
         </select>
         <select id="notifStatusFilter" class="filter" aria-label="Filtrar por estado">
           <option value="all">Estado: todos</option>
-          <option value="success">✅ Exitosas</option>
-          <option value="failed">❌ Fallidas</option>
-          <option value="partial">⚠️ Parciales</option>
+          <option value="success">Exitosas</option>
+          <option value="failed">Fallidas</option>
+          <option value="partial">Parciales</option>
         </select>
         <label class="filter-check" for="notifOnlyUnread">
           <input id="notifOnlyUnread" type="checkbox" />
-          Solo no leídas
+          Solo no leidas
         </label>
         <button id="notificationRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
-        <button id="notificationClearBtn" class="btn btn-secondary" type="button">Limpiar historial</button>
       </div>
 
-      <div id="notificationResumenStats"></div>
+      <div id="notificationResumenStats" style="background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow);"></div>
 
       <div id="notificationHistoryStatus"></div>
       <div id="notificationHistoryList"></div>
