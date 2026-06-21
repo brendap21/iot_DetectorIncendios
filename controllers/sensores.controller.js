@@ -110,9 +110,12 @@ const guardarLectura = async (req, res) => {
     const payloadProbabilidadValida = Number.isFinite(payloadProbabilidad)
       ? Math.min(Math.max(payloadProbabilidad, 0), 1)
       : null;
-    const payloadAlerta = req.body && typeof req.body.alerta === 'boolean'
-      ? req.body.alerta
-      : null;
+    const alertaRaw = req.body ? req.body.alerta : undefined;
+    const payloadAlerta = typeof alertaRaw === 'boolean'
+      ? alertaRaw
+      : (alertaRaw === 1 || alertaRaw === '1' || String(alertaRaw).toLowerCase() === 'true'
+        ? true
+        : (alertaRaw === 0 || alertaRaw === '0' || String(alertaRaw).toLowerCase() === 'false' ? false : null));
     const payloadNivel = req.body && typeof req.body.nivel === 'string'
       ? req.body.nivel.trim()
       : null;

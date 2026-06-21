@@ -10,16 +10,16 @@ const ML_PROBABILITY_CRITICAL_THRESHOLD = 0.75;
 const ML_PROBABILITY_WARNING_THRESHOLD = 0.55;
 
 const COOLDOWN_MS = {
-  llama_detectada: 5000,
-  riesgo_alto: 30000,
-  gas_extremo: 20000,
-  gas_alto: 40000,
-  cambio_extremo_gas: 30000,
-  movimiento_detectado: 3000,      // Reducido: permite detectar movimiento más frecuentemente
-  anomalia_estadistica: 60000,
-  probabilidad_incendio_alta: 20000,
-  probabilidad_incendio_media: 30000,
-  tendencia_gas_subiendo: 20000,
+  llama_detectada: 0,
+  riesgo_alto: 0,
+  gas_extremo: 0,
+  gas_alto: 0,
+  cambio_extremo_gas: 0,
+  movimiento_detectado: 0,      // Reducido: permite detectar movimiento más frecuentemente
+  anomalia_estadistica: 0,
+  probabilidad_incendio_alta: 0,
+  probabilidad_incendio_media: 0,
+  tendencia_gas_subiendo: 0,
 };
 
 function inferirProbabilidadML(lectura) {
@@ -192,7 +192,7 @@ function filtrarAlertasPorCooldown(alertas) {
 
   return alertas.filter((alerta) => {
     const tipo = alerta.tipo;
-    const cooldown = COOLDOWN_MS[tipo] || 30000;
+    const cooldown = COOLDOWN_MS[tipo] ?? 30000;
     const ultimo = ultimaAlertaPorTipo.get(tipo) || 0;
 
     if ((ahora - ultimo) < cooldown) {
@@ -232,75 +232,13 @@ async function actualizarEstadoAmenaza(tipoAmenaza, estado) {
 
 // Detectar cambios de estado y filtrar alertas dinámicamente
 async function filtrarAlertasPorEstadoDinamico(alertas) {
-  if (!db || !Array.isArray(alertas) || alertas.length === 0) {
+  if (!Array.isArray(alertas) || alertas.length === 0) {
     return alertas;
   }
 
-  const alertasAEnviar = [];
-  const ahora = Date.now();
-
-  for (const alerta of alertas) {
-    const tipo = alerta.tipo;
-    const cooldown = COOLDOWN_MS[tipo] || 30000;
-
-    try {
-      // Obtener estado actual
-      let estadoAmenaza = await obtenerEstadoAmenaza(tipo);
-      
-      if (!estadoAmenaza) {
-        // Primera vez que se detecta esta amenaza
-        estadoAmenaza = {
-          tipo,
-          estado: 'active',  // active, resolved, dismissed
-          ultimaDeteccion: new Date(),
-          ultimaNotificacion: null,
-          contador: 0,
-          createdAt: new Date(),
-        };
-      }
-
-      const ultimaNotif = estadoAmenaza.ultimaNotificacion 
-        ? new Date(estadoAmenaza.ultimaNotificacion).getTime()
-        : 0;
-
-      // Lógica de decisión
-      let debeEnviarNotificacion = false;
-      let nuevoEstado = estadoAmenaza.estado;
-
-      if (estadoAmenaza.estado === 'resolved' || estadoAmenaza.estado === 'dismissed') {
-        // La amenaza fue resuelta/descartada y vuelve a ocurrir → NUEVA notificación
-        debeEnviarNotificacion = true;
-        nuevoEstado = 'active';
-        logger.info(`Amenaza reactivada: ${tipo}`);
-      } else if (estadoAmenaza.estado === 'active') {
-        // Ya está activa: solo enviar si pasó el cooldown
-        if ((ahora - ultimaNotif) >= cooldown) {
-          debeEnviarNotificacion = true;
-          logger.info(`Amenaza renotificada (cooldown pasado): ${tipo}`);
-        }
-      }
-
-      // Actualizar estado
-      if (debeEnviarNotificacion) {
-        estadoAmenaza.ultimaNotificacion = new Date();
-        estadoAmenaza.contador = (estadoAmenaza.contador || 0) + 1;
-        estadoAmenaza.ultimaDeteccion = new Date();
-        
-        await actualizarEstadoAmenaza(tipo, estadoAmenaza);
-        alertasAEnviar.push(alerta);
-      } else {
-        // Actualizar solo la detección
-        estadoAmenaza.ultimaDeteccion = new Date();
-        await actualizarEstadoAmenaza(tipo, estadoAmenaza);
-      }
-    } catch (error) {
-      logger.error(`Error procesando alerta ${tipo}:`, error.message);
-      // En caso de error, enviar la alerta (modo seguro)
-      alertasAEnviar.push(alerta);
-    }
-  }
-
-  return alertasAEnviar;
+  // Requisito del prototipo: cada deteccion debe generar alerta/notificacion.
+  // No se aplica cooldown ni estado persistente para bloquear repeticiones.
+  return alertas;
 }
 
 // Resolver una amenaza (marcar como atendida)

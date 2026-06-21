@@ -124,6 +124,10 @@
   }
 
   async function fetchJson(url, options) {
+    options = options || {};
+    if (!options.cache) {
+      options.cache = 'no-store';
+    }
     var response = await fetch(url, options);
     var data = await response.json().catch(function () { return {}; });
 
@@ -442,40 +446,15 @@
   }
 
   function getAlertCooldownMs(alerta) {
-    var tipo = alerta && alerta.tipo ? alerta.tipo : '';
-    if (tipo === 'llama_detectada') return 10000;
-    if (tipo === 'riesgo_alto') return 30000;
-    if (tipo === 'gas_extremo') return 30000;
-    if (tipo === 'cambio_extremo_gas') return 30000;
-    if (tipo === 'probabilidad_incendio_alta') return 30000;
-    if (tipo === 'probabilidad_incendio_media') return 45000;
-    if (tipo === 'tendencia_gas_subiendo') return 30000;
-    if (tipo === 'movimiento_detectado') return 20000;
-    return 15000;
+    return 0;
   }
 
   function canNotifyAlertType(alerta) {
-    try {
-      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
-      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
-      var state = raw ? JSON.parse(raw) : {};
-      var last = Number(state[key] || 0);
-      return Date.now() - last >= getAlertCooldownMs(alerta);
-    } catch (error) {
-      return true;
-    }
+    return true;
   }
 
   function rememberAlertType(alerta) {
-    try {
-      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
-      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
-      var state = raw ? JSON.parse(raw) : {};
-      state[key] = Date.now();
-      localStorage.setItem(LS_NOTIFIED_TYPES, JSON.stringify(state));
-    } catch (error) {
-      console.warn('No se pudo guardar cooldown de alerta:', error.message);
-    }
+    // Sin cooldown local: cada deteccion nueva puede sonar y mostrar notificacion.
   }
 
   function getActiveAlertSignature(alertas) {
