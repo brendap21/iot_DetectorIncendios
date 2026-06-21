@@ -241,6 +241,8 @@
 
     if (severityFilter && severityFilter.value && severityFilter.value !== 'all') {
       query.push('severidad=' + encodeURIComponent(severityFilter.value));
+    } else {
+      query.push('severidad=critical');
     }
 
     if (onlyUnreadAlerts && onlyUnreadAlerts.checked) {
@@ -255,6 +257,8 @@
 
     if (severityFilter && severityFilter.value && severityFilter.value !== 'all') {
       query.push('severidad=' + encodeURIComponent(severityFilter.value));
+    } else {
+      query.push('severidad=critical');
     }
 
     return '/api/alertas/ultimas?' + query.join('&');
@@ -565,6 +569,7 @@
       var reciente = Number.isFinite(fechaMs) ? (now - fechaMs) <= 45000 : true;
       var token = buildAlertNotificationToken(alerta);
       return alerta &&
+        alerta.severidad === 'critical' &&
         token &&
         alerta.leida !== true &&
         reciente &&

@@ -185,24 +185,26 @@ const guardarLectura = async (req, res) => {
           anomaliaDetectada: anomalia,
         };
 
-        await sendAlertToAll({
-          title: alerta.titulo,
-          body: alerta.mensaje,
-          tag: alerta.tipo,
-          severity: alerta.severidad,
-          renotify: alerta.severidad === 'critical',
-          requireInteraction: alerta.severidad === 'critical',
-          vibrate: alerta.severidad === 'critical' ? [300, 150, 300, 150, 600] : [100],
-          soundHint: alerta.severidad === 'critical' ? 'critical' : 'default',
-          data: {
-            lecturaId: doc.id,
-            tipo: alerta.tipo,
-            riesgo,
-            gas,
-            movimiento,
-          },
-          url: '/resultados',
-        }, metadata);
+        if (alerta.severidad === 'critical') {
+          await sendAlertToAll({
+            title: alerta.titulo,
+            body: alerta.mensaje,
+            tag: alerta.tipo,
+            severity: alerta.severidad,
+            renotify: true,
+            requireInteraction: true,
+            vibrate: [300, 150, 300, 150, 600],
+            soundHint: 'critical',
+            data: {
+              lecturaId: doc.id,
+              tipo: alerta.tipo,
+              riesgo,
+              gas,
+              movimiento,
+            },
+            url: '/resultados',
+          }, metadata);
+        }
       }
     }
 
