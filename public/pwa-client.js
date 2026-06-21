@@ -446,15 +446,31 @@
   }
 
   function getAlertCooldownMs(alerta) {
-    return 0;
+    return 5000;
   }
 
   function canNotifyAlertType(alerta) {
-    return true;
+    try {
+      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
+      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
+      var state = raw ? JSON.parse(raw) : {};
+      var last = Number(state[key] || 0);
+      return Date.now() - last >= getAlertCooldownMs(alerta);
+    } catch (error) {
+      return true;
+    }
   }
 
   function rememberAlertType(alerta) {
-    // Sin cooldown local: cada deteccion nueva puede sonar y mostrar notificacion.
+    try {
+      var key = alerta && alerta.tipo ? alerta.tipo : 'desconocida';
+      var raw = localStorage.getItem(LS_NOTIFIED_TYPES);
+      var state = raw ? JSON.parse(raw) : {};
+      state[key] = Date.now();
+      localStorage.setItem(LS_NOTIFIED_TYPES, JSON.stringify(state));
+    } catch (error) {
+      console.warn('No se pudo guardar cooldown de alerta:', error.message);
+    }
   }
 
   function getActiveAlertSignature(alertas) {

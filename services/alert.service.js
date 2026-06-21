@@ -10,17 +10,19 @@ const ML_PROBABILITY_CRITICAL_THRESHOLD = 0.75;
 const ML_PROBABILITY_WARNING_THRESHOLD = 0.55;
 
 const COOLDOWN_MS = {
-  llama_detectada: 0,
-  riesgo_alto: 0,
-  gas_extremo: 0,
-  gas_alto: 0,
-  cambio_extremo_gas: 0,
-  movimiento_detectado: 0,      // Reducido: permite detectar movimiento más frecuentemente
-  anomalia_estadistica: 0,
-  probabilidad_incendio_alta: 0,
-  probabilidad_incendio_media: 0,
-  tendencia_gas_subiendo: 0,
+  llama_detectada: 5000,
+  riesgo_alto: 5000,
+  gas_extremo: 5000,
+  gas_alto: 5000,
+  cambio_extremo_gas: 5000,
+  movimiento_detectado: 5000,      // Reducido: permite detectar movimiento más frecuentemente
+  anomalia_estadistica: 5000,
+  probabilidad_incendio_alta: 5000,
+  probabilidad_incendio_media: 5000,
+  tendencia_gas_subiendo: 5000,
 };
+
+const ultimaAlertaPorTipo = new Map();
 
 function inferirProbabilidadML(lectura) {
   const probabilidadDirecta = Number(lectura && lectura.probabilidad);
@@ -236,9 +238,8 @@ async function filtrarAlertasPorEstadoDinamico(alertas) {
     return alertas;
   }
 
-  // Requisito del prototipo: cada deteccion debe generar alerta/notificacion.
-  // No se aplica cooldown ni estado persistente para bloquear repeticiones.
-  return alertas;
+  // Cooldown corto para evitar rafagas de notificaciones sin perder detecciones nuevas.
+  return filtrarAlertasPorCooldown(alertas);
 }
 
 // Resolver una amenaza (marcar como atendida)
